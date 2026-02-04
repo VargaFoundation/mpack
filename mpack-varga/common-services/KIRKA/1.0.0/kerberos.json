@@ -1,0 +1,33 @@
+{
+  "services": [
+    {
+      "name": "KIRKA",
+      "components": [
+        {
+          "name": "KIRKA_SERVER",
+          "identities": [
+            {
+              "name": "kirka_server_identity",
+              "principal": {
+                "value": "${kirka-site/security.kerberos.principal}",
+                "type": "service"
+              },
+              "keytab": {
+                "file": "${kirka-site/security.kerberos.keytab}",
+                "owner": {
+                  "name": "root",
+                  "access": "r"
+                },
+                "group": {
+                  "name": "hadoop",
+                  "access": ""
+                },
+                "configuration": "kirka-site/security.kerberos.keytab"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

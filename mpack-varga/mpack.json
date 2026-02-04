@@ -1,0 +1,22 @@
+{
+  "name": "varga-mpack",
+  "version": "1.0.0.0",
+  "description": "Mpack for Kirka and Tarn services",
+  "prerequisites": {
+    "min_ambari_version": "2.7.0.0"
+  },
+  "artifacts": [
+    {
+      "name": "varga-stack-definitions",
+      "type": "stack-definition",
+      "source_dir": "stacks",
+      "dest_dir": "stacks"
+    },
+    {
+      "name": "varga-common-services",
+      "type": "common-service-definition",
+      "source_dir": "common-services",
+      "dest_dir": "common-services"
+    }
+  ]
+}

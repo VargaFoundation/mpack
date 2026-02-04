@@ -1,0 +1,49 @@
+spring.application.name=kirka
+server.port={{kirka_port}}
+# HBase Configuration
+hbase.zookeeper.quorum={{hbase_zookeeper_quorum}}
+hbase.zookeeper.property.clientPort={{hbase_zookeeper_clientPort}}
+# HDFS Configuration
+hadoop.hdfs.uri={{hadoop_hdfs_uri}}
+# ===========================================
+# Security Configuration
+# ===========================================
+security.enabled={{security_enabled}}
+security.authentication.type={{security_authentication_type}}
+security.admin.users={{security_admin_users}}
+# ===========================================
+# Kerberos Configuration
+# ===========================================
+security.kerberos.enabled={{security_kerberos_enabled}}
+security.kerberos.principal={{security_kerberos_principal}}
+security.kerberos.keytab={{security_kerberos_keytab}}
+security.kerberos.krb5conf={{security_kerberos_krb5conf}}
+# ===========================================
+# Apache Ranger Configuration
+# ===========================================
+ranger.service.name={{ranger_service_name}}
+ranger.admin.url={{ranger_admin_url}}
+ranger.policy.cache.dir={{ranger_policy_cache_dir}}
+security.authorization.owner.enabled={{security_authorization_owner_enabled}}
+# ===========================================
+# Logging
+# ===========================================
+logging.level.varga.kirka={{logging_level_kirka}}
+logging.pattern.console=%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n
+# ===========================================
+# Actuator & Metrics
+# ===========================================
+management.endpoints.web.exposure.include=health,info,metrics,prometheus,env,loggers,beans
+management.endpoint.health.show-details=always
+management.endpoint.health.probes.enabled=true
+management.endpoints.web.base-path=/actuator
+management.info.env.enabled=true
+management.info.java.enabled=true
+management.info.os.enabled=true
+info.app.name=Kirka
+info.app.description=MLFlow compatible service for Hadoop
+info.app.version=1.0.0
+management.prometheus.metrics.export.enabled=true
+management.metrics.tags.application=${spring.application.name}
+management.health.diskspace.enabled=true
+management.health.ping.enabled=true

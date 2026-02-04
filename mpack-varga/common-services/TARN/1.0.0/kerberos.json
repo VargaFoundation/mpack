@@ -1,0 +1,33 @@
+{
+  "services": [
+    {
+      "name": "TARN",
+      "components": [
+        {
+          "name": "TARN_SERVER",
+          "identities": [
+            {
+              "name": "tarn_server_identity",
+              "principal": {
+                "value": "${tarn-site/security.kerberos.principal}",
+                "type": "service"
+              },
+              "keytab": {
+                "file": "${tarn-site/security.kerberos.keytab}",
+                "owner": {
+                  "name": "root",
+                  "access": "r"
+                },
+                "group": {
+                  "name": "hadoop",
+                  "access": ""
+                },
+                "configuration": "tarn-site/security.kerberos.keytab"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

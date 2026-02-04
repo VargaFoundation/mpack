@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<metainfo>
+  <schemaVersion>2.0</schemaVersion>
+  <services>
+    <service>
+      <name>KIRKA</name>
+      <displayName>Kirka</displayName>
+      <comment>Kirka is a high-performance distributed task scheduler.</comment>
+      <version>1.0.0</version>
+      <components>
+        <component>
+          <name>KIRKA_SERVER</name>
+          <displayName>Kirka Server</displayName>
+          <category>MASTER</category>
+          <cardinality>1</cardinality>
+          <dependencies>
+            <dependency>
+              <name>RANGER/RANGER_ADMIN</name>
+              <scope>cluster</scope>
+              <auto-deploy>
+                <enabled>false</enabled>
+              </auto-deploy>
+            </dependency>
+            <dependency>
+              <name>RANGER/RANGER_USERSYNC</name>
+              <scope>cluster</scope>
+              <auto-deploy>
+                <enabled>false</enabled>
+              </auto-deploy>
+            </dependency>
+          </dependencies>
+          <commandScript>
+            <script>scripts/kirka_server.py</script>
+            <scriptType>PYTHON</scriptType>
+            <timeout>600</timeout>
+          </commandScript>
+        </component>
+      </components>
+      <osSpecifics>
+        <osSpecific>
+          <osFamily>any</osFamily>
+        </osSpecific>
+      </osSpecifics>
+    </service>
+  </services>
+</metainfo>

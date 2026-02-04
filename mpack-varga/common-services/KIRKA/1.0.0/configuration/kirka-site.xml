@@ -1,0 +1,88 @@
+<?xml version="1.0"?>
+<configuration>
+  <property>
+    <name>kirka.port</name>
+    <value>8080</value>
+    <description>Port for Kirka Server</description>
+  </property>
+  <property>
+    <name>kirka.install_dir</name>
+    <value>/opt/kirka</value>
+    <description>Installation directory for Kirka</description>
+  </property>
+  <property>
+    <name>hbase.zookeeper.quorum</name>
+    <value>localhost</value>
+    <description>HBase Zookeeper Quorum</description>
+  </property>
+  <property>
+    <name>hbase.zookeeper.property.clientPort</name>
+    <value>2181</value>
+    <description>HBase Zookeeper Client Port</description>
+  </property>
+  <property>
+    <name>hadoop.hdfs.uri</name>
+    <value>hdfs://localhost:9000</value>
+    <description>HDFS URI</description>
+  </property>
+  <property>
+    <name>security.enabled</name>
+    <value>false</value>
+    <description>Enable/disable security</description>
+  </property>
+  <property>
+    <name>security.authentication.type</name>
+    <value>basic</value>
+    <description>Authentication type (basic, knox, kerberos)</description>
+  </property>
+  <property>
+    <name>security.admin.users</name>
+    <value>admin</value>
+    <description>Comma-separated list of admin users</description>
+  </property>
+  <property>
+    <name>security.kerberos.enabled</name>
+    <value>false</value>
+    <description>Enable Kerberos</description>
+  </property>
+  <property>
+    <name>security.kerberos.principal</name>
+    <value>user@REALM.COM</value>
+    <description>Kerberos principal</description>
+  </property>
+  <property>
+    <name>security.kerberos.keytab</name>
+    <value>/path/to/user.keytab</value>
+    <description>Kerberos keytab path</description>
+  </property>
+  <property>
+    <name>security.kerberos.krb5conf</name>
+    <value>/etc/krb5.conf</value>
+    <description>krb5.conf path</description>
+  </property>
+  <property>
+    <name>ranger.service.name</name>
+    <value>kirka</value>
+    <description>Ranger service name</description>
+  </property>
+  <property>
+    <name>ranger.admin.url</name>
+    <value>http://localhost:6080</value>
+    <description>Ranger Admin URL</description>
+  </property>
+  <property>
+    <name>ranger.policy.cache.dir</name>
+    <value>/tmp/ranger-cache</value>
+    <description>Ranger policy cache directory</description>
+  </property>
+  <property>
+    <name>security.authorization.owner.enabled</name>
+    <value>true</value>
+    <description>Enable owner-based authorization</description>
+  </property>
+  <property>
+    <name>logging.level.kirka</name>
+    <value>INFO</value>
+    <description>Logging level for Kirka</description>
+  </property>
+</configuration>

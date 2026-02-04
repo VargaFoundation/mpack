@@ -1,0 +1,153 @@
+<?xml version="1.0"?>
+<configuration>
+  <property>
+    <name>tarn.model.repository</name>
+    <value>hdfs:///models</value>
+    <description>Path to model repository (hdfs:///... or /...)</description>
+  </property>
+  <property>
+    <name>tarn.image</name>
+    <value>nvcr.io/nvidia/tritonserver:24.09-py3</value>
+    <description>Triton Docker image</description>
+  </property>
+  <property>
+    <name>tarn.port</name>
+    <value>8000</value>
+    <description>Triton HTTP port</description>
+  </property>
+  <property>
+    <name>tarn.grpc.port</name>
+    <value>8001</value>
+    <description>Triton GRPC port</description>
+  </property>
+  <property>
+    <name>tarn.metrics.port</name>
+    <value>8002</value>
+    <description>Triton metrics port</description>
+  </property>
+  <property>
+    <name>tarn.am.port</name>
+    <value>8888</value>
+    <description>AM HTTP port</description>
+  </property>
+  <property>
+    <name>tarn.bind.address</name>
+    <value>0.0.0.0</value>
+    <description>Bind address</description>
+  </property>
+  <property>
+    <name>tarn.token</name>
+    <value></value>
+    <description>Security token for API</description>
+  </property>
+  <property>
+    <name>tarn.tensor.parallelism</name>
+    <value>1</value>
+    <description>Tensor parallelism</description>
+  </property>
+  <property>
+    <name>tarn.pipeline.parallelism</name>
+    <value>1</value>
+    <description>Pipeline parallelism</description>
+  </property>
+  <property>
+    <name>tarn.secrets.path</name>
+    <value></value>
+    <description>HDFS path to JKS/JCEKS secrets file</description>
+  </property>
+  <property>
+    <name>tarn.placement.tag</name>
+    <value>nvidia</value>
+    <description>Placement tag for anti-affinity</description>
+  </property>
+  <property>
+    <name>tarn.docker.network</name>
+    <value>host</value>
+    <description>Docker network</description>
+  </property>
+  <property>
+    <name>tarn.docker.privileged</name>
+    <value>false</value>
+    <description>Run docker in privileged mode</description>
+  </property>
+  <property>
+    <name>tarn.docker.delayed.removal</name>
+    <value>false</value>
+    <description>Delayed removal of docker containers</description>
+  </property>
+  <property>
+    <name>tarn.zk.ensemble</name>
+    <value></value>
+    <description>ZooKeeper ensemble (e.g. host1:2181,host2:2181)</description>
+  </property>
+  <property>
+    <name>tarn.zk.path</name>
+    <value>/services/triton/instances</value>
+    <description>ZooKeeper path for instance registration</description>
+  </property>
+  <property>
+    <name>tarn.ranger.service</name>
+    <value>tarn</value>
+    <description>Apache Ranger service name</description>
+  </property>
+  <property>
+    <name>tarn.ranger.app.id</name>
+    <value>tarn</value>
+    <description>Apache Ranger App ID</description>
+  </property>
+  <property>
+    <name>tarn.ranger.audit</name>
+    <value>true</value>
+    <description>Enable Apache Ranger auditing</description>
+  </property>
+  <property>
+    <name>tarn.scale.up.threshold</name>
+    <value>0.7</value>
+    <description>Scale up threshold (0.0-1.0)</description>
+  </property>
+  <property>
+    <name>tarn.scale.down.threshold</name>
+    <value>0.2</value>
+    <description>Scale down threshold (0.0-1.0)</description>
+  </property>
+  <property>
+    <name>tarn.min.instances</name>
+    <value>1</value>
+    <description>Minimum number of instances</description>
+  </property>
+  <property>
+    <name>tarn.max.instances</name>
+    <value>10</value>
+    <description>Maximum number of instances</description>
+  </property>
+  <property>
+    <name>tarn.cooldown</name>
+    <value>60000</value>
+    <description>Scale cooldown in ms</description>
+  </property>
+  <property>
+    <name>tarn.install_dir</name>
+    <value>/usr/lib/tarn</value>
+    <description>Installation directory for Tarn</description>
+  </property>
+  <property>
+    <name>security.kerberos.enabled</name>
+    <value>false</value>
+    <description>Enable Kerberos for Tarn</description>
+  </property>
+  <property>
+    <name>security.kerberos.principal</name>
+    <value>tarn/_HOST@REALM.COM</value>
+    <description>Kerberos principal for Tarn</description>
+  </property>
+  <property>
+    <name>security.kerberos.keytab</name>
+    <value>/etc/security/keytabs/tarn.service.keytab</value>
+    <description>Kerberos keytab path for Tarn</description>
+  </property>
+  <property>
+    <name>ranger.admin.url</name>
+    <value>http://localhost:6080</value>
+    <description>Ranger Admin URL</description>
+  </property>
+</configuration>
