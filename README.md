@@ -6,7 +6,6 @@ This project contains a Management Pack (mpack) for Apache Ambari to deploy and 
 
 - `mpack-varga/`: Management Pack source code.
 - `build/`: Build scripts.
-- `SPEC.md`: Technical specifications.
 
 ## Build
 
