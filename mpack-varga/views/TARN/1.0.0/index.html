@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tarn Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f5f6f8; color: #333; }
+    .header { background: #1b1f2b; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 20px; font-weight: 600; }
+    .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 500; }
+    .status-badge.ok { background: #28a745; color: #fff; }
+    .status-badge.error { background: #dc3545; color: #fff; }
+    .status-badge.loading { background: #6c757d; color: #fff; }
+    .container { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
+    .card h2 { font-size: 15px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+    .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: #888; font-size: 13px; }
+    .info-value { font-weight: 500; font-size: 13px; }
+    .endpoints-list { list-style: none; }
+    .endpoints-list li { padding: 6px 0; }
+    .endpoints-list a { color: #0066cc; text-decoration: none; font-size: 13px; }
+    .endpoints-list a:hover { text-decoration: underline; }
+    .error-msg { color: #dc3545; font-size: 14px; text-align: center; padding: 40px 20px; }
+    .refresh-btn { background: none; border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .refresh-btn:hover { border-color: #fff; }
+    .scaling-bar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .scaling-bar .bar { flex: 1; height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden; }
+    .scaling-bar .bar-fill { height: 100%; background: #0066cc; border-radius: 4px; transition: width 0.3s; }
+    .model-list { list-style: none; }
+    .model-list li { padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+    .model-list li:last-child { border-bottom: none; }
+    .model-status { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .model-status.ready { background: #28a745; }
+    .model-status.loading { background: #ffc107; }
+    .model-status.unavailable { background: #dc3545; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Tarn Inference Platform</h1>
+    <div>
+      <span id="status" class="status-badge loading">Connecting...</span>
+      <button class="refresh-btn" onclick="loadData()">Refresh</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="grid">
+      <div class="card">
+        <h2>Service Info</h2>
+        <div>
+          <div class="info-row"><span class="info-label">AM Status</span><span class="info-value" id="svc-status">--</span></div>
+          <div class="info-row"><span class="info-label">AM URL</span><span class="info-value" id="svc-am-url">--</span></div>
+          <div class="info-row"><span class="info-label">Triton URL</span><span class="info-value" id="svc-triton-url">--</span></div>
+          <div class="info-row"><span class="info-label">Metrics URL</span><span class="info-value" id="svc-metrics-url">--</span></div>
+          <div class="info-row"><span class="info-label">Model Repository</span><span class="info-value" id="svc-model-repo">--</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Scaling</h2>
+        <div>
+          <div class="info-row"><span class="info-label">Running Instances</span><span class="info-value" id="scale-running">--</span></div>
+          <div class="info-row"><span class="info-label">Min / Max</span><span class="info-value" id="scale-range">--</span></div>
+          <div class="scaling-bar">
+            <span class="info-label" style="font-size:12px">Capacity</span>
+            <div class="bar"><div class="bar-fill" id="scale-bar" style="width:0%"></div></div>
+            <span class="info-value" style="font-size:12px" id="scale-pct">--</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Models</h2>
+        <ul class="model-list" id="model-list">
+          <li>Loading...</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Inference Metrics</h2>
+        <div>
+          <div class="info-row"><span class="info-label">Requests/sec</span><span class="info-value" id="metric-rps">--</span></div>
+          <div class="info-row"><span class="info-label">Avg Latency</span><span class="info-value" id="metric-latency">--</span></div>
+          <div class="info-row"><span class="info-label">GPU Utilization</span><span class="info-value" id="metric-gpu">--</span></div>
+          <div class="info-row"><span class="info-label">Queue Size</span><span class="info-value" id="metric-queue">--</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Quick Links</h2>
+        <ul class="endpoints-list">
+          <li><a id="link-am" href="#" target="_blank">Application Master</a></li>
+          <li><a id="link-triton-health" href="#" target="_blank">Triton Health</a></li>
+          <li><a id="link-triton-models" href="#" target="_blank">Triton Model Repository</a></li>
+          <li><a id="link-metrics" href="#" target="_blank">Prometheus Metrics</a></li>
+          <li><a id="link-grpc" href="#" target="_blank">gRPC Endpoint Info</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var VIEW_API = '/api/v1/views/TARN/versions/1.0.0/instances/AUTO_TARN_INSTANCE';
+
+    function getViewParam(name) {
+      return new Promise(function(resolve) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', VIEW_API + '/properties/' + name);
+        xhr.onload = function() {
+          try { resolve(JSON.parse(xhr.responseText).value || ''); }
+          catch(e) { resolve(''); }
+        };
+        xhr.onerror = function() { resolve(''); };
+        xhr.send();
+      });
+    }
+
+    function proxyGet(url) {
+      return new Promise(function(resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', VIEW_API + '/proxy?url=' + encodeURIComponent(url));
+        xhr.onload = function() {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch(e) { resolve(xhr.responseText); }
+          } else { reject(new Error('HTTP ' + xhr.status)); }
+        };
+        xhr.onerror = function() { reject(new Error('Network error')); };
+        xhr.send();
+      });
+    }
+
+    var amUrl = '', tritonUrl = '', metricsUrl = '';
+
+    function loadData() {
+      var statusEl = document.getElementById('status');
+      statusEl.className = 'status-badge loading';
+      statusEl.textContent = 'Connecting...';
+
+      Promise.all([
+        getViewParam('tarn.am.url'),
+        getViewParam('tarn.triton.url'),
+        getViewParam('tarn.metrics.url'),
+        getViewParam('tarn.model.repository'),
+        getViewParam('tarn.min.instances'),
+        getViewParam('tarn.max.instances')
+      ]).then(function(params) {
+        amUrl = params[0] || 'http://localhost:8888';
+        tritonUrl = params[1] || 'http://localhost:8000';
+        metricsUrl = params[2] || 'http://localhost:8002';
+        var modelRepo = params[3] || 'hdfs:///models';
+        var minInst = params[4] || '1';
+        var maxInst = params[5] || '10';
+
+        document.getElementById('svc-am-url').textContent = amUrl;
+        document.getElementById('svc-triton-url').textContent = tritonUrl;
+        document.getElementById('svc-metrics-url').textContent = metricsUrl;
+        document.getElementById('svc-model-repo').textContent = modelRepo;
+        document.getElementById('scale-range').textContent = minInst + ' / ' + maxInst;
+
+        // Quick links
+        document.getElementById('link-am').href = amUrl;
+        document.getElementById('link-triton-health').href = tritonUrl + '/v2/health/ready';
+        document.getElementById('link-triton-models').href = tritonUrl + '/v2/models';
+        document.getElementById('link-metrics').href = metricsUrl + '/metrics';
+        document.getElementById('link-grpc').href = tritonUrl.replace(/:\d+$/, ':8001');
+
+        // Load Triton health
+        return proxyGet(tritonUrl + '/v2/health/ready');
+      }).then(function() {
+        statusEl.className = 'status-badge ok';
+        statusEl.textContent = 'READY';
+        document.getElementById('svc-status').textContent = 'Running';
+
+        // Load models
+        return proxyGet(tritonUrl + '/v2/models/stats');
+      }).then(function(data) {
+        var modelListEl = document.getElementById('model-list');
+        if (data && data.model_stats && data.model_stats.length > 0) {
+          modelListEl.innerHTML = '';
+          data.model_stats.forEach(function(m) {
+            var li = document.createElement('li');
+            var status = m.inference_count > 0 ? 'ready' : 'loading';
+            li.innerHTML = '<span class="model-status ' + status + '"></span>' +
+              '<strong>' + m.name + '</strong> (v' + (m.version || '1') + ') &mdash; ' +
+              (m.inference_count || 0) + ' inferences';
+            modelListEl.appendChild(li);
+          });
+        } else {
+          modelListEl.innerHTML = '<li>No models loaded</li>';
+        }
+      }).catch(function(err) {
+        statusEl.className = 'status-badge error';
+        statusEl.textContent = 'DOWN';
+        document.getElementById('svc-status').textContent = 'Unreachable';
+        document.getElementById('model-list').innerHTML = '<li>Unable to retrieve models</li>';
+      });
+
+      // Load metrics independently
+      if (metricsUrl) {
+        proxyGet(metricsUrl + '/metrics').then(function(raw) {
+          if (typeof raw === 'string') {
+            var rps = extractMetric(raw, 'nv_inference_request_success');
+            var latency = extractMetric(raw, 'nv_inference_request_duration_us');
+            var gpu = extractMetric(raw, 'nv_gpu_utilization');
+            var queue = extractMetric(raw, 'nv_inference_queue_duration_us');
+            document.getElementById('metric-rps').textContent = rps ? rps + '/s' : 'N/A';
+            document.getElementById('metric-latency').textContent = latency ? (parseFloat(latency)/1000).toFixed(1) + ' ms' : 'N/A';
+            document.getElementById('metric-gpu').textContent = gpu ? (parseFloat(gpu)*100).toFixed(0) + '%' : 'N/A';
+            document.getElementById('metric-queue').textContent = queue || 'N/A';
+          }
+        }).catch(function() {});
+      }
+    }
+
+    function extractMetric(text, name) {
+      var lines = text.split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].indexOf(name) === 0 && lines[i].indexOf('#') !== 0) {
+          var parts = lines[i].split(/\s+/);
+          return parts[parts.length - 1];
+        }
+      }
+      return null;
+    }
+
+    loadData();
+    setInterval(loadData, 30000);
+  </script>
+</body>
+</html>

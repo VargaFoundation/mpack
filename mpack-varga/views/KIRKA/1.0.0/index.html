@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kirka Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f5f6f8; color: #333; }
+    .header { background: #1b1f2b; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 20px; font-weight: 600; }
+    .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 500; }
+    .status-badge.ok { background: #28a745; color: #fff; }
+    .status-badge.error { background: #dc3545; color: #fff; }
+    .status-badge.loading { background: #6c757d; color: #fff; }
+    .container { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
+    .card h2 { font-size: 15px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+    .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: #888; font-size: 13px; }
+    .info-value { font-weight: 500; font-size: 13px; }
+    .endpoints-list { list-style: none; }
+    .endpoints-list li { padding: 6px 0; }
+    .endpoints-list a { color: #0066cc; text-decoration: none; font-size: 13px; }
+    .endpoints-list a:hover { text-decoration: underline; }
+    .error-msg { color: #dc3545; font-size: 14px; text-align: center; padding: 40px 20px; }
+    .refresh-btn { background: none; border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .refresh-btn:hover { border-color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Kirka Task Scheduler</h1>
+    <div>
+      <span id="status" class="status-badge loading">Connecting...</span>
+      <button class="refresh-btn" onclick="loadData()">Refresh</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="grid">
+      <div class="card">
+        <h2>Service Info</h2>
+        <div id="service-info">
+          <div class="info-row"><span class="info-label">Status</span><span class="info-value" id="svc-status">--</span></div>
+          <div class="info-row"><span class="info-label">URL</span><span class="info-value" id="svc-url">--</span></div>
+          <div class="info-row"><span class="info-label">Port</span><span class="info-value" id="svc-port">--</span></div>
+          <div class="info-row"><span class="info-label">Security</span><span class="info-value" id="svc-security">--</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Health</h2>
+        <div id="health-info">
+          <div class="info-row"><span class="info-label">Application</span><span class="info-value" id="health-app">--</span></div>
+          <div class="info-row"><span class="info-label">HBase</span><span class="info-value" id="health-hbase">--</span></div>
+          <div class="info-row"><span class="info-label">HDFS</span><span class="info-value" id="health-hdfs">--</span></div>
+          <div class="info-row"><span class="info-label">Disk Space</span><span class="info-value" id="health-disk">--</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Configuration</h2>
+        <div id="config-info">
+          <div class="info-row"><span class="info-label">HBase ZK Quorum</span><span class="info-value" id="cfg-hbase-zk">--</span></div>
+          <div class="info-row"><span class="info-label">HDFS URI</span><span class="info-value" id="cfg-hdfs">--</span></div>
+          <div class="info-row"><span class="info-label">Kerberos</span><span class="info-value" id="cfg-kerberos">--</span></div>
+          <div class="info-row"><span class="info-label">Ranger</span><span class="info-value" id="cfg-ranger">--</span></div>
+          <div class="info-row"><span class="info-label">Log Level</span><span class="info-value" id="cfg-loglevel">--</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Quick Links</h2>
+        <ul class="endpoints-list" id="endpoints">
+          <li><a id="link-health" href="#" target="_blank">Health Endpoint</a></li>
+          <li><a id="link-info" href="#" target="_blank">Info Endpoint</a></li>
+          <li><a id="link-metrics" href="#" target="_blank">Metrics Endpoint</a></li>
+          <li><a id="link-prometheus" href="#" target="_blank">Prometheus Metrics</a></li>
+          <li><a id="link-api" href="#" target="_blank">API Root</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var VIEW_API = '/api/v1/views/KIRKA/versions/1.0.0/instances/AUTO_KIRKA_INSTANCE';
+
+    function getViewParam(name) {
+      return new Promise(function(resolve) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', VIEW_API + '/properties/' + name);
+        xhr.onload = function() {
+          try { resolve(JSON.parse(xhr.responseText).value || ''); }
+          catch(e) { resolve(''); }
+        };
+        xhr.onerror = function() { resolve(''); };
+        xhr.send();
+      });
+    }
+
+    function proxyGet(path) {
+      return new Promise(function(resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', VIEW_API + '/proxy?url=' + encodeURIComponent(path));
+        xhr.onload = function() {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch(e) { resolve(xhr.responseText); }
+          } else { reject(new Error('HTTP ' + xhr.status)); }
+        };
+        xhr.onerror = function() { reject(new Error('Network error')); };
+        xhr.send();
+      });
+    }
+
+    var serviceUrl = '';
+
+    function loadData() {
+      var statusEl = document.getElementById('status');
+      statusEl.className = 'status-badge loading';
+      statusEl.textContent = 'Connecting...';
+
+      // Try to load from Ambari view properties first, fall back to defaults
+      Promise.all([
+        getViewParam('kirka.service.url'),
+        getViewParam('kirka.security.enabled')
+      ]).then(function(params) {
+        serviceUrl = params[0] || 'http://localhost:8080';
+        var securityEnabled = params[1] || 'false';
+
+        document.getElementById('svc-url').textContent = serviceUrl;
+        document.getElementById('svc-port').textContent = serviceUrl.split(':').pop();
+        document.getElementById('svc-security').textContent = securityEnabled === 'true' ? 'Enabled' : 'Disabled';
+
+        // Links
+        document.getElementById('link-health').href = serviceUrl + '/actuator/health';
+        document.getElementById('link-info').href = serviceUrl + '/actuator/info';
+        document.getElementById('link-metrics').href = serviceUrl + '/actuator/metrics';
+        document.getElementById('link-prometheus').href = serviceUrl + '/actuator/prometheus';
+        document.getElementById('link-api').href = serviceUrl + '/';
+
+        return proxyGet(serviceUrl + '/actuator/health');
+      }).then(function(health) {
+        statusEl.className = 'status-badge ok';
+        statusEl.textContent = 'UP';
+        document.getElementById('svc-status').textContent = health.status || 'UP';
+        document.getElementById('health-app').textContent = health.status || 'UP';
+
+        var components = health.components || {};
+        document.getElementById('health-hbase').textContent = (components.hbase && components.hbase.status) || 'N/A';
+        document.getElementById('health-hdfs').textContent = (components.hdfs && components.hdfs.status) || 'N/A';
+        document.getElementById('health-disk').textContent = (components.diskSpace && components.diskSpace.status) || 'N/A';
+      }).catch(function(err) {
+        statusEl.className = 'status-badge error';
+        statusEl.textContent = 'DOWN';
+        document.getElementById('svc-status').textContent = 'Unreachable';
+      });
+    }
+
+    loadData();
+    setInterval(loadData, 30000);
+  </script>
+</body>
+</html>

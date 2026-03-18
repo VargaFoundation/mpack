@@ -1,0 +1,93 @@
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements. See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+-->
+<view>
+  <name>TARN</name>
+  <label>Tarn</label>
+  <version>1.0.0</version>
+  <description>Dashboard for monitoring and managing the Tarn distributed inference serving platform.</description>
+  <min-ambari-version>2.7.0</min-ambari-version>
+
+  <parameter>
+    <name>tarn.am.url</name>
+    <description>Base URL of the Tarn Application Master (e.g. http://tarn-host:8888)</description>
+    <label>Tarn AM URL</label>
+    <placeholder>http://localhost:8888</placeholder>
+    <required>true</required>
+  </parameter>
+
+  <parameter>
+    <name>tarn.triton.url</name>
+    <description>Base URL of a Triton inference endpoint (e.g. http://triton-host:8000)</description>
+    <label>Triton HTTP URL</label>
+    <placeholder>http://localhost:8000</placeholder>
+    <required>false</required>
+  </parameter>
+
+  <parameter>
+    <name>tarn.metrics.url</name>
+    <description>Base URL of the Triton metrics endpoint (e.g. http://triton-host:8002)</description>
+    <label>Triton Metrics URL</label>
+    <placeholder>http://localhost:8002</placeholder>
+    <required>false</required>
+  </parameter>
+
+  <parameter>
+    <name>tarn.model.repository</name>
+    <description>HDFS path to the model repository</description>
+    <label>Model Repository</label>
+    <required>false</required>
+  </parameter>
+
+  <parameter>
+    <name>tarn.min.instances</name>
+    <description>Minimum number of Tarn instances</description>
+    <label>Min Instances</label>
+    <required>false</required>
+  </parameter>
+
+  <parameter>
+    <name>tarn.max.instances</name>
+    <description>Maximum number of Tarn instances</description>
+    <label>Max Instances</label>
+    <required>false</required>
+  </parameter>
+
+  <auto-instance>
+    <name>AUTO_TARN_INSTANCE</name>
+    <label>Tarn</label>
+    <description>Auto-created instance linked to the Tarn service</description>
+    <stack-id>VARGA-1.0</stack-id>
+    <services>
+      <service>
+        <name>TARN</name>
+      </service>
+    </services>
+    <property>
+      <key>tarn.am.url</key>
+      <value>http://${TARN_SERVER_HOST}:${tarn-site/tarn.am.port}</value>
+    </property>
+    <property>
+      <key>tarn.triton.url</key>
+      <value>http://${TARN_SERVER_HOST}:${tarn-site/tarn.port}</value>
+    </property>
+    <property>
+      <key>tarn.metrics.url</key>
+      <value>http://${TARN_SERVER_HOST}:${tarn-site/tarn.metrics.port}</value>
+    </property>
+    <property>
+      <key>tarn.model.repository</key>
+      <value>${tarn-site/tarn.model.repository}</value>
+    </property>
+    <property>
+      <key>tarn.min.instances</key>
+      <value>${tarn-site/tarn.min.instances}</value>
+    </property>
+    <property>
+      <key>tarn.max.instances</key>
+      <value>${tarn-site/tarn.max.instances}</value>
+    </property>
+  </auto-instance>
+</view>

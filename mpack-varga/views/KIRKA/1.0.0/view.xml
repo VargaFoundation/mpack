@@ -1,0 +1,48 @@
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements. See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+-->
+<view>
+  <name>KIRKA</name>
+  <label>Kirka</label>
+  <version>1.0.0</version>
+  <description>Dashboard for monitoring and managing the Kirka distributed task scheduler.</description>
+  <min-ambari-version>2.7.0</min-ambari-version>
+
+  <parameter>
+    <name>kirka.service.url</name>
+    <description>Base URL of the Kirka Server (e.g. http://kirka-host:8080)</description>
+    <label>Kirka Server URL</label>
+    <placeholder>http://localhost:8080</placeholder>
+    <required>true</required>
+  </parameter>
+
+  <parameter>
+    <name>kirka.security.enabled</name>
+    <description>Whether security (Kerberos/SPNEGO) is enabled on the Kirka Server</description>
+    <label>Security Enabled</label>
+    <default-value>false</default-value>
+    <required>false</required>
+  </parameter>
+
+  <auto-instance>
+    <name>AUTO_KIRKA_INSTANCE</name>
+    <label>Kirka</label>
+    <description>Auto-created instance linked to the Kirka service</description>
+    <stack-id>VARGA-1.0</stack-id>
+    <services>
+      <service>
+        <name>KIRKA</name>
+      </service>
+    </services>
+    <property>
+      <key>kirka.service.url</key>
+      <value>http://${KIRKA_SERVER_HOST}:${kirka-site/kirka.port}</value>
+    </property>
+    <property>
+      <key>kirka.security.enabled</key>
+      <value>${kirka-site/security.enabled}</value>
+    </property>
+  </auto-instance>
+</view>

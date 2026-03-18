@@ -17,6 +17,12 @@
       "type": "common-service-definition",
       "source_dir": "common-services",
       "dest_dir": "common-services"
+    },
+    {
+      "name": "varga-view-definitions",
+      "type": "view-definition",
+      "source_dir": "views",
+      "dest_dir": "views"
     }
   ]
 }
