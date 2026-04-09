@@ -28,11 +28,23 @@ tarn_scale_down_threshold = config['configurations']['tarn-site']['tarn.scale.do
 tarn_min_instances = config['configurations']['tarn-site']['tarn.min.instances']
 tarn_max_instances = config['configurations']['tarn-site']['tarn.max.instances']
 tarn_cooldown = config['configurations']['tarn-site']['tarn.cooldown']
+tarn_client_port = config['configurations']['tarn-site']['tarn.client.port']
 tarn_install_dir = config['configurations']['tarn-site']['tarn.install_dir']
 security_kerberos_enabled = config['configurations']['tarn-site']['security.kerberos.enabled']
 security_kerberos_principal = config['configurations']['tarn-site']['security.kerberos.principal']
 security_kerberos_keytab = config['configurations']['tarn-site']['security.kerberos.keytab']
 ranger_admin_url = config['configurations']['tarn-site']['ranger.admin.url']
+
+# Ranger admin credentials (resolved from Ambari credential store)
+ranger_admin_username = default('/configurations/ranger-env/admin_username', 'admin')
+ranger_admin_password = default('/configurations/ranger-env/admin_password', '')
+# Ranger YARN service name follows Ambari convention: {cluster_name}_yarn
+cluster_name = config['clusterName']
+ranger_yarn_service_name = cluster_name + '_yarn'
+# Ranger admin HTTPS URL
+ranger_https_port = default('/configurations/ranger-admin-site/ranger.service.https.port', '6182')
+ranger_http_enabled = default('/configurations/ranger-admin-site/ranger.service.http.enabled', 'false')
+ranger_host = default('/configurations/ranger-admin-site/ranger.externalurl', ranger_admin_url)
 
 tarn_log_dir = "/var/log/tarn"
 tarn_pid_dir = "/var/run/tarn"

@@ -26,6 +26,11 @@
     <description>Triton metrics port</description>
   </property>
   <property>
+    <name>tarn.client.port</name>
+    <value>8889</value>
+    <description>Port for the Tarn Client health endpoint (used by Ambari)</description>
+  </property>
+  <property>
     <name>tarn.am.port</name>
     <value>8888</value>
     <description>AM HTTP port</description>
@@ -39,6 +44,9 @@
     <name>tarn.token</name>
     <value></value>
     <description>Security token for API</description>
+    <value-attributes>
+      <empty-value-valid>true</empty-value-valid>
+    </value-attributes>
   </property>
   <property>
     <name>tarn.tensor.parallelism</name>
@@ -54,6 +62,9 @@
     <name>tarn.secrets.path</name>
     <value></value>
     <description>HDFS path to JKS/JCEKS secrets file</description>
+    <value-attributes>
+      <empty-value-valid>true</empty-value-valid>
+    </value-attributes>
   </property>
   <property>
     <name>tarn.placement.tag</name>
@@ -79,6 +90,9 @@
     <name>tarn.zk.ensemble</name>
     <value></value>
     <description>ZooKeeper ensemble (e.g. host1:2181,host2:2181)</description>
+    <value-attributes>
+      <empty-value-valid>true</empty-value-valid>
+    </value-attributes>
   </property>
   <property>
     <name>tarn.zk.path</name>
@@ -149,5 +163,14 @@
     <name>ranger.admin.url</name>
     <value>http://localhost:6080</value>
     <description>Ranger Admin URL</description>
+  </property>
+  <property>
+    <name>ambari.admin.password</name>
+    <value></value>
+    <description>Ambari admin password (used during install to auto-configure YARN queue ACLs for the tarn user)</description>
+    <value-attributes>
+      <type>password</type>
+      <empty-value-valid>true</empty-value-valid>
+    </value-attributes>
   </property>
 </configuration>

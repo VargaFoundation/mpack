@@ -106,25 +106,14 @@
   </div>
 
   <script>
-    var VIEW_API = '/api/v1/views/TARN/versions/1.0.0/instances/AUTO_TARN_INSTANCE';
+    // Derive API path from current URL
+    var pathParts = window.location.pathname.match(/\/views\/([^/]+)\/([^/]+)\/([^/]+)/);
+    var VIEW_API = '/api/v1/views/' + pathParts[1] + '/versions/' + pathParts[2] + '/instances/' + pathParts[3];
 
-    function getViewParam(name) {
-      return new Promise(function(resolve) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', VIEW_API + '/properties/' + name);
-        xhr.onload = function() {
-          try { resolve(JSON.parse(xhr.responseText).value || ''); }
-          catch(e) { resolve(''); }
-        };
-        xhr.onerror = function() { resolve(''); };
-        xhr.send();
-      });
-    }
-
-    function proxyGet(url) {
+    function apiGet(url) {
       return new Promise(function(resolve, reject) {
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', VIEW_API + '/proxy?url=' + encodeURIComponent(url));
+        xhr.open('GET', url);
         xhr.onload = function() {
           if (xhr.status >= 200 && xhr.status < 300) {
             try { resolve(JSON.parse(xhr.responseText)); }
@@ -136,27 +125,72 @@
       });
     }
 
+    var _viewProps = null;
+    function loadViewProps() {
+      if (_viewProps) return Promise.resolve(_viewProps);
+      return apiGet(VIEW_API + '?fields=ViewInstanceInfo/properties')
+        .then(function(data) {
+          _viewProps = (data.ViewInstanceInfo && data.ViewInstanceInfo.properties) || {};
+          return _viewProps;
+        })
+        .catch(function() { _viewProps = {}; return _viewProps; });
+    }
+
+    function getClusterName() {
+      return apiGet('/api/v1/clusters').then(function(data) {
+        if (data.items && data.items.length > 0) return data.items[0].Clusters.cluster_name;
+        throw new Error('No cluster found');
+      });
+    }
+
+    function getServiceState(cluster) {
+      return apiGet('/api/v1/clusters/' + cluster + '/services/TARN?fields=ServiceInfo/state')
+        .then(function(data) { return data.ServiceInfo.state; });
+    }
+
+    function getTarnConfig(cluster) {
+      return apiGet('/api/v1/clusters/' + cluster + '?fields=Clusters/desired_configs/tarn-site')
+        .then(function(data) {
+          var dc = data.Clusters.desired_configs;
+          if (!dc || !dc['tarn-site']) throw new Error('tarn-site not found');
+          return apiGet('/api/v1/clusters/' + cluster + '/configurations?type=tarn-site&tag=' + dc['tarn-site'].tag);
+        })
+        .then(function(data) {
+          return (data.items && data.items[0] && data.items[0].properties) || {};
+        });
+    }
+
+    function extractMetric(text, name) {
+      var lines = text.split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].indexOf(name) === 0 && lines[i].indexOf('#') !== 0) {
+          var parts = lines[i].split(/\s+/);
+          return parts[parts.length - 1];
+        }
+      }
+      return null;
+    }
+
     var amUrl = '', tritonUrl = '', metricsUrl = '';
 
     function loadData() {
       var statusEl = document.getElementById('status');
       statusEl.className = 'status-badge loading';
-      statusEl.textContent = 'Connecting...';
+      statusEl.textContent = 'Loading...';
 
       Promise.all([
-        getViewParam('tarn.am.url'),
-        getViewParam('tarn.triton.url'),
-        getViewParam('tarn.metrics.url'),
-        getViewParam('tarn.model.repository'),
-        getViewParam('tarn.min.instances'),
-        getViewParam('tarn.max.instances')
-      ]).then(function(params) {
-        amUrl = params[0] || 'http://localhost:8888';
-        tritonUrl = params[1] || 'http://localhost:8000';
-        metricsUrl = params[2] || 'http://localhost:8002';
-        var modelRepo = params[3] || 'hdfs:///models';
-        var minInst = params[4] || '1';
-        var maxInst = params[5] || '10';
+        loadViewProps(),
+        getClusterName()
+      ]).then(function(r) {
+        var props = r[0];
+        var cluster = r[1];
+
+        amUrl = props['tarn.am.url'] || 'http://localhost:8888';
+        tritonUrl = props['tarn.triton.url'] || 'http://localhost:8000';
+        metricsUrl = props['tarn.metrics.url'] || 'http://localhost:8002';
+        var modelRepo = props['tarn.model.repository'] || 'hdfs:///models';
+        var minInst = props['tarn.min.instances'] || '1';
+        var maxInst = props['tarn.max.instances'] || '10';
 
         document.getElementById('svc-am-url').textContent = amUrl;
         document.getElementById('svc-triton-url').textContent = tritonUrl;
@@ -171,63 +205,92 @@
         document.getElementById('link-metrics').href = metricsUrl + '/metrics';
         document.getElementById('link-grpc').href = tritonUrl.replace(/:\d+$/, ':8001');
 
-        // Load Triton health
-        return proxyGet(tritonUrl + '/v2/health/ready');
-      }).then(function() {
-        statusEl.className = 'status-badge ok';
-        statusEl.textContent = 'READY';
-        document.getElementById('svc-status').textContent = 'Running';
+        // Get service state and config from Ambari API
+        return Promise.all([
+          getServiceState(cluster),
+          getTarnConfig(cluster)
+        ]);
+      }).then(function(r) {
+        var state = r[0];
+        var config = r[1];
+        var isUp = (state === 'STARTED');
 
-        // Load models
-        return proxyGet(tritonUrl + '/v2/models/stats');
-      }).then(function(data) {
-        var modelListEl = document.getElementById('model-list');
-        if (data && data.model_stats && data.model_stats.length > 0) {
-          modelListEl.innerHTML = '';
-          data.model_stats.forEach(function(m) {
-            var li = document.createElement('li');
-            var status = m.inference_count > 0 ? 'ready' : 'loading';
-            li.innerHTML = '<span class="model-status ' + status + '"></span>' +
-              '<strong>' + m.name + '</strong> (v' + (m.version || '1') + ') &mdash; ' +
-              (m.inference_count || 0) + ' inferences';
-            modelListEl.appendChild(li);
-          });
-        } else {
-          modelListEl.innerHTML = '<li>No models loaded</li>';
+        statusEl.className = 'status-badge ' + (isUp ? 'ok' : 'error');
+        statusEl.textContent = isUp ? 'STARTED' : state;
+        document.getElementById('svc-status').textContent = state;
+
+        // Update view props from config if view params were empty
+        if (!amUrl || amUrl === 'http://localhost:8888') {
+          var host = config['tarn.am.host'] || 'localhost';
+          var port = config['tarn.am.port'] || '8888';
+          amUrl = 'http://' + host + ':' + port;
+          document.getElementById('svc-am-url').textContent = amUrl;
+          document.getElementById('link-am').href = amUrl;
+        }
+
+        // Try direct Triton health check (best-effort, may fail due to mixed content)
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', tritonUrl + '/v2/health/ready', true);
+        xhr.timeout = 5000;
+        xhr.onload = function() {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            document.getElementById('svc-status').textContent = 'Running';
+          }
+          // Try to load models
+          var xhr2 = new XMLHttpRequest();
+          xhr2.open('GET', tritonUrl + '/v2/models/stats', true);
+          xhr2.timeout = 5000;
+          xhr2.onload = function() {
+            if (xhr2.status >= 200 && xhr2.status < 300) {
+              try {
+                var data = JSON.parse(xhr2.responseText);
+                var modelListEl = document.getElementById('model-list');
+                if (data && data.model_stats && data.model_stats.length > 0) {
+                  modelListEl.innerHTML = '';
+                  data.model_stats.forEach(function(m) {
+                    var li = document.createElement('li');
+                    var mStatus = m.inference_count > 0 ? 'ready' : 'loading';
+                    li.innerHTML = '<span class="model-status ' + mStatus + '"></span>' +
+                      '<strong>' + m.name + '</strong> (v' + (m.version || '1') + ') &mdash; ' +
+                      (m.inference_count || 0) + ' inferences';
+                    modelListEl.appendChild(li);
+                  });
+                } else {
+                  modelListEl.innerHTML = '<li>No models loaded</li>';
+                }
+              } catch(e) {}
+            }
+          };
+          try { xhr2.send(); } catch(e) {}
+        };
+        try { xhr.send(); } catch(e) {}
+
+        // Try to load metrics (best-effort)
+        if (metricsUrl) {
+          var xhrM = new XMLHttpRequest();
+          xhrM.open('GET', metricsUrl + '/metrics', true);
+          xhrM.timeout = 5000;
+          xhrM.onload = function() {
+            if (xhrM.status >= 200 && xhrM.status < 300 && typeof xhrM.responseText === 'string') {
+              var raw = xhrM.responseText;
+              var rps = extractMetric(raw, 'nv_inference_request_success');
+              var latency = extractMetric(raw, 'nv_inference_request_duration_us');
+              var gpu = extractMetric(raw, 'nv_gpu_utilization');
+              var queue = extractMetric(raw, 'nv_inference_queue_duration_us');
+              document.getElementById('metric-rps').textContent = rps ? rps + '/s' : 'N/A';
+              document.getElementById('metric-latency').textContent = latency ? (parseFloat(latency)/1000).toFixed(1) + ' ms' : 'N/A';
+              document.getElementById('metric-gpu').textContent = gpu ? (parseFloat(gpu)*100).toFixed(0) + '%' : 'N/A';
+              document.getElementById('metric-queue').textContent = queue || 'N/A';
+            }
+          };
+          try { xhrM.send(); } catch(e) {}
         }
       }).catch(function(err) {
         statusEl.className = 'status-badge error';
-        statusEl.textContent = 'DOWN';
-        document.getElementById('svc-status').textContent = 'Unreachable';
+        statusEl.textContent = 'ERROR';
+        document.getElementById('svc-status').textContent = 'Error loading data';
         document.getElementById('model-list').innerHTML = '<li>Unable to retrieve models</li>';
       });
-
-      // Load metrics independently
-      if (metricsUrl) {
-        proxyGet(metricsUrl + '/metrics').then(function(raw) {
-          if (typeof raw === 'string') {
-            var rps = extractMetric(raw, 'nv_inference_request_success');
-            var latency = extractMetric(raw, 'nv_inference_request_duration_us');
-            var gpu = extractMetric(raw, 'nv_gpu_utilization');
-            var queue = extractMetric(raw, 'nv_inference_queue_duration_us');
-            document.getElementById('metric-rps').textContent = rps ? rps + '/s' : 'N/A';
-            document.getElementById('metric-latency').textContent = latency ? (parseFloat(latency)/1000).toFixed(1) + ' ms' : 'N/A';
-            document.getElementById('metric-gpu').textContent = gpu ? (parseFloat(gpu)*100).toFixed(0) + '%' : 'N/A';
-            document.getElementById('metric-queue').textContent = queue || 'N/A';
-          }
-        }).catch(function() {});
-      }
-    }
-
-    function extractMetric(text, name) {
-      var lines = text.split('\n');
-      for (var i = 0; i < lines.length; i++) {
-        if (lines[i].indexOf(name) === 0 && lines[i].indexOf('#') !== 0) {
-          var parts = lines[i].split(/\s+/);
-          return parts[parts.length - 1];
-        }
-      }
-      return null;
     }
 
     loadData();

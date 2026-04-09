@@ -36,21 +36,27 @@ class KirkaServer(Script):
     import params
     env.set_params(params)
     self.configure(env)
-    Logger.info("Starting Kirka Server")
-    process_cmd = format("{java_home}/bin/java -jar {kirka_install_dir}/kirka.jar --spring.config.location={kirka_conf_dir}/application.properties")
-    Execute(format("nohup {process_cmd} > {kirka_log_dir}/kirka.out 2>&1 & echo $! > {kirka_pid_file}"),
+    hadoop_conf_dir = "/etc/hadoop/conf"
+    process_cmd = format("{java_home}/bin/java -cp {hadoop_conf_dir}:{kirka_install_dir}/kirka.jar org.springframework.boot.loader.launch.JarLauncher --spring.config.location={kirka_conf_dir}/application.properties")
+    Logger.info(format("Starting Kirka Server: {process_cmd}"))
+    daemon_cmd = format("nohup {process_cmd} >> {kirka_log_dir}/kirka.out 2>&1 & echo $! > {kirka_pid_file}")
+    Execute(daemon_cmd,
             user='root',
-            not_if=format("ls {kirka_pid_file} >/dev/null 2>&1 && ps -p `cat {kirka_pid_file}` >/dev/null 2>&1")
+            not_if=format("ls {kirka_pid_file} >/dev/null 2>&1 && ps -p `cat {kirka_pid_file}` >/dev/null 2>&1"),
+            logoutput=True
     )
+    Logger.info(format("Kirka Server started, PID file: {kirka_pid_file}"))
 
   def stop(self, env):
     import params
     env.set_params(params)
     Logger.info("Stopping Kirka Server")
     Execute(format("kill `cat {kirka_pid_file}`"),
-            only_if=format("test -f {kirka_pid_file} && ps -p `cat {kirka_pid_file}` >/dev/null 2>&1")
+            only_if=format("test -f {kirka_pid_file} && ps -p `cat {kirka_pid_file}` >/dev/null 2>&1"),
+            logoutput=True
     )
     File(params.kirka_pid_file, action="delete")
+    Logger.info("Kirka Server stopped")
 
   def status(self, env):
     import params

@@ -86,25 +86,14 @@
   </div>
 
   <script>
-    var VIEW_API = '/api/v1/views/KIRKA/versions/1.0.0/instances/AUTO_KIRKA_INSTANCE';
+    // Derive API path from current URL
+    var pathParts = window.location.pathname.match(/\/views\/([^/]+)\/([^/]+)\/([^/]+)/);
+    var VIEW_API = '/api/v1/views/' + pathParts[1] + '/versions/' + pathParts[2] + '/instances/' + pathParts[3];
 
-    function getViewParam(name) {
-      return new Promise(function(resolve) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', VIEW_API + '/properties/' + name);
-        xhr.onload = function() {
-          try { resolve(JSON.parse(xhr.responseText).value || ''); }
-          catch(e) { resolve(''); }
-        };
-        xhr.onerror = function() { resolve(''); };
-        xhr.send();
-      });
-    }
-
-    function proxyGet(path) {
+    function apiGet(url) {
       return new Promise(function(resolve, reject) {
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', VIEW_API + '/proxy?url=' + encodeURIComponent(path));
+        xhr.open('GET', url);
         xhr.onload = function() {
           if (xhr.status >= 200 && xhr.status < 300) {
             try { resolve(JSON.parse(xhr.responseText)); }
@@ -116,47 +105,121 @@
       });
     }
 
+    var _viewProps = null;
+    function loadViewProps() {
+      if (_viewProps) return Promise.resolve(_viewProps);
+      return apiGet(VIEW_API + '?fields=ViewInstanceInfo/properties')
+        .then(function(data) {
+          _viewProps = (data.ViewInstanceInfo && data.ViewInstanceInfo.properties) || {};
+          return _viewProps;
+        })
+        .catch(function() { _viewProps = {}; return _viewProps; });
+    }
+
+    function getClusterName() {
+      return apiGet('/api/v1/clusters').then(function(data) {
+        if (data.items && data.items.length > 0) return data.items[0].Clusters.cluster_name;
+        throw new Error('No cluster found');
+      });
+    }
+
+    function getKirkaConfig(cluster) {
+      return apiGet('/api/v1/clusters/' + cluster + '?fields=Clusters/desired_configs/kirka-site')
+        .then(function(data) {
+          var dc = data.Clusters.desired_configs;
+          if (!dc || !dc['kirka-site']) throw new Error('kirka-site not found');
+          return apiGet('/api/v1/clusters/' + cluster + '/configurations?type=kirka-site&tag=' + dc['kirka-site'].tag);
+        })
+        .then(function(data) {
+          return (data.items && data.items[0] && data.items[0].properties) || {};
+        });
+    }
+
+    function getServiceState(cluster) {
+      return apiGet('/api/v1/clusters/' + cluster + '/services/KIRKA?fields=ServiceInfo/state')
+        .then(function(data) { return data.ServiceInfo.state; });
+    }
+
+    function getComponentHosts(cluster) {
+      return apiGet('/api/v1/clusters/' + cluster + '/services/KIRKA/components/KIRKA_SERVER?fields=host_components/HostRoles/state,host_components/HostRoles/host_name')
+        .then(function(data) { return data.host_components || []; });
+    }
+
     var serviceUrl = '';
 
     function loadData() {
       var statusEl = document.getElementById('status');
       statusEl.className = 'status-badge loading';
-      statusEl.textContent = 'Connecting...';
+      statusEl.textContent = 'Loading...';
 
-      // Try to load from Ambari view properties first, fall back to defaults
       Promise.all([
-        getViewParam('kirka.service.url'),
-        getViewParam('kirka.security.enabled')
-      ]).then(function(params) {
-        serviceUrl = params[0] || 'http://localhost:8080';
-        var securityEnabled = params[1] || 'false';
+        loadViewProps(),
+        getClusterName()
+      ]).then(function(r) {
+        var props = r[0];
+        var cluster = r[1];
 
+        // Service Info from view properties
+        serviceUrl = props['kirka.service.url'] || 'http://localhost:8086';
         document.getElementById('svc-url').textContent = serviceUrl;
         document.getElementById('svc-port').textContent = serviceUrl.split(':').pop();
-        document.getElementById('svc-security').textContent = securityEnabled === 'true' ? 'Enabled' : 'Disabled';
+        document.getElementById('svc-security').textContent =
+          props['kirka.security.enabled'] === 'true' ? 'Enabled' : 'Disabled';
 
-        // Links
+        // Quick Links
         document.getElementById('link-health').href = serviceUrl + '/actuator/health';
         document.getElementById('link-info').href = serviceUrl + '/actuator/info';
         document.getElementById('link-metrics').href = serviceUrl + '/actuator/metrics';
         document.getElementById('link-prometheus').href = serviceUrl + '/actuator/prometheus';
         document.getElementById('link-api').href = serviceUrl + '/';
 
-        return proxyGet(serviceUrl + '/actuator/health');
-      }).then(function(health) {
-        statusEl.className = 'status-badge ok';
-        statusEl.textContent = 'UP';
-        document.getElementById('svc-status').textContent = health.status || 'UP';
-        document.getElementById('health-app').textContent = health.status || 'UP';
+        // Load config, service state and host components from Ambari API
+        return Promise.all([
+          getKirkaConfig(cluster),
+          getServiceState(cluster),
+          getComponentHosts(cluster)
+        ]);
+      }).then(function(r) {
+        var config = r[0];
+        var state = r[1];
+        var hosts = r[2];
 
-        var components = health.components || {};
-        document.getElementById('health-hbase').textContent = (components.hbase && components.hbase.status) || 'N/A';
-        document.getElementById('health-hdfs').textContent = (components.hdfs && components.hdfs.status) || 'N/A';
-        document.getElementById('health-disk').textContent = (components.diskSpace && components.diskSpace.status) || 'N/A';
+        // Configuration section
+        document.getElementById('cfg-hbase-zk').textContent = config['hbase.zookeeper.quorum'] || 'N/A';
+        document.getElementById('cfg-hdfs').textContent = config['hadoop.hdfs.uri'] || 'N/A';
+        document.getElementById('cfg-kerberos').textContent =
+          config['security.kerberos.enabled'] === 'true' ? 'Enabled' : 'Disabled';
+        document.getElementById('cfg-ranger').textContent = config['ranger.admin.url'] || 'N/A';
+        document.getElementById('cfg-loglevel').textContent = config['logging.level.kirka'] || 'N/A';
+
+        // Service status from Ambari
+        var isUp = (state === 'STARTED');
+        statusEl.className = 'status-badge ' + (isUp ? 'ok' : 'error');
+        statusEl.textContent = isUp ? 'STARTED' : state;
+        document.getElementById('svc-status').textContent = state;
+        document.getElementById('health-app').textContent = state;
+
+        // Try actuator health for detailed breakdown (best-effort, may fail due to mixed content)
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', serviceUrl + '/actuator/health', true);
+        xhr.timeout = 5000;
+        xhr.onload = function() {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              var health = JSON.parse(xhr.responseText);
+              var c = health.components || {};
+              document.getElementById('health-app').textContent = health.status || state;
+              document.getElementById('health-hbase').textContent = (c.hbase && c.hbase.status) || 'N/A';
+              document.getElementById('health-hdfs').textContent = (c.hdfs && c.hdfs.status) || 'N/A';
+              document.getElementById('health-disk').textContent = (c.diskSpace && c.diskSpace.status) || 'N/A';
+            } catch(e) {}
+          }
+        };
+        try { xhr.send(); } catch(e) {}
       }).catch(function(err) {
         statusEl.className = 'status-badge error';
-        statusEl.textContent = 'DOWN';
-        document.getElementById('svc-status').textContent = 'Unreachable';
+        statusEl.textContent = 'ERROR';
+        document.getElementById('svc-status').textContent = 'Error loading data';
       });
     }
 

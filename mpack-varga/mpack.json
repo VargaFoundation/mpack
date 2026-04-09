@@ -7,8 +7,8 @@
   },
   "artifacts": [
     {
-      "name": "varga-stack-addon-service-definitions",
-      "type": "stack-addon-service-definitions",
+      "name": "varga-stack-definitions",
+      "type": "stack-definitions",
       "source_dir": "stacks",
       "dest_dir": "stacks"
     },

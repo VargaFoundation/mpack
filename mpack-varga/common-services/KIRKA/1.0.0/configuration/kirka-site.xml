@@ -2,7 +2,7 @@
 <configuration>
   <property>
     <name>kirka.port</name>
-    <value>8080</value>
+    <value>8086</value>
     <description>Port for Kirka Server</description>
   </property>
   <property>

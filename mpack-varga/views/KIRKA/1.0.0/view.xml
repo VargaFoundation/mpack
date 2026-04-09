@@ -26,6 +26,43 @@
     <required>false</required>
   </parameter>
 
+  <parameter>
+    <name>kirka.hbase.zk.quorum</name>
+    <description>HBase ZooKeeper Quorum</description>
+    <label>HBase ZK Quorum</label>
+    <required>false</required>
+  </parameter>
+
+  <parameter>
+    <name>kirka.hdfs.uri</name>
+    <description>HDFS URI</description>
+    <label>HDFS URI</label>
+    <required>false</required>
+  </parameter>
+
+  <parameter>
+    <name>kirka.kerberos.enabled</name>
+    <description>Whether Kerberos is enabled</description>
+    <label>Kerberos Enabled</label>
+    <default-value>false</default-value>
+    <required>false</required>
+  </parameter>
+
+  <parameter>
+    <name>kirka.ranger.admin.url</name>
+    <description>Ranger Admin URL</description>
+    <label>Ranger Admin URL</label>
+    <required>false</required>
+  </parameter>
+
+  <parameter>
+    <name>kirka.logging.level</name>
+    <description>Logging level for Kirka</description>
+    <label>Log Level</label>
+    <default-value>INFO</default-value>
+    <required>false</required>
+  </parameter>
+
   <auto-instance>
     <name>AUTO_KIRKA_INSTANCE</name>
     <label>Kirka</label>
@@ -43,6 +80,26 @@
     <property>
       <key>kirka.security.enabled</key>
       <value>${kirka-site/security.enabled}</value>
+    </property>
+    <property>
+      <key>kirka.hbase.zk.quorum</key>
+      <value>${kirka-site/hbase.zookeeper.quorum}</value>
+    </property>
+    <property>
+      <key>kirka.hdfs.uri</key>
+      <value>${kirka-site/hadoop.hdfs.uri}</value>
+    </property>
+    <property>
+      <key>kirka.kerberos.enabled</key>
+      <value>${kirka-site/security.kerberos.enabled}</value>
+    </property>
+    <property>
+      <key>kirka.ranger.admin.url</key>
+      <value>${kirka-site/ranger.admin.url}</value>
+    </property>
+    <property>
+      <key>kirka.logging.level</key>
+      <value>${kirka-site/logging.level.kirka}</value>
     </property>
   </auto-instance>
 </view>
