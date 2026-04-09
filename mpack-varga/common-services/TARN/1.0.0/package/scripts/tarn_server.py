@@ -9,14 +9,14 @@ class TarnServer(Script):
     Logger.info("Installing Tarn Server")
     Directory([params.tarn_install_dir, params.tarn_conf_dir, params.tarn_log_dir, params.tarn_pid_dir],
               create_parents = True,
-              mode=0755
+              mode=0o755
     )
     # Copy JAR from mpack package
     File(os.path.join(params.tarn_install_dir, "tarn.jar"),
          content=StaticFile("tarn.jar"),
          owner='root',
          group='hadoop',
-         mode=0644
+         mode=0o644
     )
 
   def configure(self, env):

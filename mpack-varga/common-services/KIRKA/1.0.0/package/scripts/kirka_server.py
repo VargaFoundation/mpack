@@ -9,14 +9,14 @@ class KirkaServer(Script):
     Logger.info("Installing Kirka Server")
     Directory([params.kirka_install_dir, params.kirka_conf_dir, params.kirka_log_dir, params.kirka_pid_dir],
               create_parents = True,
-              mode=0755
+              mode=0o755
     )
     # Copy JAR from mpack package
     File(os.path.join(params.kirka_install_dir, "kirka.jar"),
          content=StaticFile("kirka.jar"),
          owner='root',
          group='hadoop',
-         mode=0644
+         mode=0o644
     )
 
   def configure(self, env):
@@ -24,7 +24,7 @@ class KirkaServer(Script):
     env.set_params(params)
     File(format("{kirka_conf_dir}/application.properties"),
          content=Template("application.properties.j2"),
-         mode=0644
+         mode=0o644
     )
     if params.security_kerberos_enabled:
       # Ensure keytab exists and has correct permissions

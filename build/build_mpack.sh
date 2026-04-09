@@ -55,9 +55,9 @@ cp "$PROJECT_ROOT/tarn/target/tarn-"*.jar "$TARN_MPACK_FILES/tarn.jar"
 rm -rf "$OUTPUT_DIR"
 mkdir -p "$OUTPUT_DIR"
 
-# Create archive
+# Create archive (Ambari requires a top-level directory in the tarball)
 echo "Creating mpack archive..."
-cd $SOURCE_DIR
-tar -cvzf ../build/$OUTPUT_DIR/$MPACK_NAME-$VERSION.tar.gz .
+cd $SOURCE_DIR/..
+tar -cvzf build/$OUTPUT_DIR/$MPACK_NAME-$VERSION.tar.gz --transform "s|^mpack-varga|$MPACK_NAME-$VERSION|" mpack-varga/
 
 echo "Build complete: build/$OUTPUT_DIR/$MPACK_NAME-$VERSION.tar.gz"

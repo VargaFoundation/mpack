@@ -7,22 +7,16 @@
   },
   "artifacts": [
     {
-      "name": "varga-stack-definitions",
-      "type": "stack-definition",
+      "name": "varga-stack-addon-service-definitions",
+      "type": "stack-addon-service-definitions",
       "source_dir": "stacks",
       "dest_dir": "stacks"
     },
     {
-      "name": "varga-common-services",
-      "type": "common-service-definition",
+      "name": "varga-service-definitions",
+      "type": "service-definitions",
       "source_dir": "common-services",
       "dest_dir": "common-services"
-    },
-    {
-      "name": "varga-view-definitions",
-      "type": "view-definition",
-      "source_dir": "views",
-      "dest_dir": "views"
     }
   ]
 }
