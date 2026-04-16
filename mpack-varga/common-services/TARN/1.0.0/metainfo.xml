@@ -50,6 +50,10 @@
           </commandScript>
         </component>
       </components>
+      <configuration-dependencies>
+        <config-type>ranger-env</config-type>
+        <config-type>ranger-admin-site</config-type>
+      </configuration-dependencies>
       <osSpecifics>
         <osSpecific>
           <osFamily>any</osFamily>

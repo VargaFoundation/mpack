@@ -164,13 +164,4 @@
     <value>http://localhost:6080</value>
     <description>Ranger Admin URL</description>
   </property>
-  <property>
-    <name>ambari.admin.password</name>
-    <value></value>
-    <description>Ambari admin password (used during install to auto-configure YARN queue ACLs for the tarn user)</description>
-    <value-attributes>
-      <type>password</type>
-      <empty-value-valid>true</empty-value-valid>
-    </value-attributes>
-  </property>
 </configuration>

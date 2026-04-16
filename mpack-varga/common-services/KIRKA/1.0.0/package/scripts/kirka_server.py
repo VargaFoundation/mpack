@@ -52,6 +52,7 @@ class KirkaServer(Script):
     env.set_params(params)
     Logger.info("Stopping Kirka Server")
     Execute(format("kill `cat {kirka_pid_file}`"),
+            user='root',
             only_if=format("test -f {kirka_pid_file} && ps -p `cat {kirka_pid_file}` >/dev/null 2>&1"),
             logoutput=True
     )

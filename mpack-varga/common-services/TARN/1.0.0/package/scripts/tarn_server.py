@@ -95,9 +95,14 @@ class TarnServer(Script):
     env.set_params(params)
 
   def _kinit(self, params):
-    """Authenticate with Kerberos using the service keytab before running YARN commands."""
+    """Authenticate with Kerberos using the smokeuser (ambari-qa) keytab.
+
+    We use ambari-qa because it exists on all cluster hosts (required by
+    YARN's LinuxContainerExecutor) and has YARN queue submit permissions.
+    The tarn service principal may not exist on all NodeManager hosts.
+    """
     if params.security_kerberos_enabled == 'true' or params.security_kerberos_enabled == True:
-      Execute(format("kinit -kt {security_kerberos_keytab} {security_kerberos_principal}"),
+      Execute(format("kinit -kt {smokeuser_keytab} {smokeuser_principal}"),
               user='root',
               logoutput=True
       )
@@ -155,7 +160,7 @@ class TarnServer(Script):
     cmd += format(" --cooldown {tarn_cooldown}")
 
     Logger.info(format("Launching Tarn Client daemon: {cmd}"))
-    daemon_cmd = format("nohup {cmd} >> {tarn_log_dir}/tarn_client.out 2>&1 & echo $! > {tarn_pid_file}")
+    daemon_cmd = format("nohup bash -c 'export JAVA_HOME={java_home}; {cmd}' >> {tarn_log_dir}/tarn_client.out 2>&1 & echo $! > {tarn_pid_file}")
     Execute(daemon_cmd,
             user='root',
             not_if=format("ls {tarn_pid_file} >/dev/null 2>&1 && ps -p `cat {tarn_pid_file}` >/dev/null 2>&1"),
@@ -169,11 +174,13 @@ class TarnServer(Script):
     Logger.info("Stopping Tarn Client Daemon")
     # Kill the Client process; its shutdown hook will kill the YARN application
     Execute(format("kill `cat {tarn_pid_file}`"),
+            user='root',
             only_if=format("test -f {tarn_pid_file} && ps -p `cat {tarn_pid_file}` >/dev/null 2>&1"),
             logoutput=True
     )
     # Wait for process to terminate (shutdown hook needs time to kill YARN app)
     Execute(format("for i in $(seq 1 30); do ps -p `cat {tarn_pid_file} 2>/dev/null` >/dev/null 2>&1 || break; sleep 1; done"),
+            user='root',
             logoutput=True
     )
     File(params.tarn_pid_file, action="delete")

@@ -35,9 +35,10 @@ security_kerberos_principal = config['configurations']['tarn-site']['security.ke
 security_kerberos_keytab = config['configurations']['tarn-site']['security.kerberos.keytab']
 ranger_admin_url = config['configurations']['tarn-site']['ranger.admin.url']
 
-# Ranger admin credentials (resolved from Ambari credential store)
-ranger_admin_username = default('/configurations/ranger-env/admin_username', 'admin')
-ranger_admin_password = default('/configurations/ranger-env/admin_password', '')
+# Ranger admin credentials (from ranger-env, decrypted by Ambari)
+ranger_env = default('/configurations/ranger-env', {})
+ranger_admin_username = ranger_env.get('ranger_admin_username', 'amb_ranger_admin') if ranger_env else 'admin'
+ranger_admin_password = ranger_env.get('ranger_admin_password', '') if ranger_env else ''
 # Ranger YARN service name follows Ambari convention: {cluster_name}_yarn
 cluster_name = config['clusterName']
 ranger_yarn_service_name = cluster_name + '_yarn'
@@ -45,6 +46,10 @@ ranger_yarn_service_name = cluster_name + '_yarn'
 ranger_https_port = default('/configurations/ranger-admin-site/ranger.service.https.port', '6182')
 ranger_http_enabled = default('/configurations/ranger-admin-site/ranger.service.http.enabled', 'false')
 ranger_host = default('/configurations/ranger-admin-site/ranger.externalurl', ranger_admin_url)
+
+# Smokeuser (ambari-qa) credentials for YARN submission
+smokeuser_keytab = default('/configurations/cluster-env/smokeuser_keytab', '/etc/security/keytabs/smokeuser.headless.keytab')
+smokeuser_principal = default('/configurations/cluster-env/smokeuser_principal_name', 'ambari-qa')
 
 tarn_log_dir = "/var/log/tarn"
 tarn_pid_dir = "/var/run/tarn"

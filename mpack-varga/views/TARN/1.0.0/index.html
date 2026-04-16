@@ -38,6 +38,24 @@
     .model-status.ready { background: #28a745; }
     .model-status.loading { background: #ffc107; }
     .model-status.unavailable { background: #dc3545; }
+    .prereq-list { list-style: none; }
+    .prereq-list li { padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; display: flex; align-items: flex-start; gap: 8px; }
+    .prereq-list li:last-child { border-bottom: none; }
+    .prereq-icon { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: #fff; flex-shrink: 0; margin-top: 1px; }
+    .prereq-icon.ok { background: #28a745; }
+    .prereq-icon.fail { background: #dc3545; }
+    .prereq-icon.warn { background: #ffc107; color: #333; }
+    .prereq-detail { color: #666; font-size: 12px; margin-top: 2px; }
+    .prereq-detail code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+    .app-history { list-style: none; }
+    .app-history li { padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+    .app-history li:last-child { border-bottom: none; }
+    .app-state { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 500; }
+    .app-state.RUNNING { background: #28a745; color: #fff; }
+    .app-state.ACCEPTED, .app-state.SUBMITTED { background: #0066cc; color: #fff; }
+    .app-state.FAILED { background: #dc3545; color: #fff; }
+    .app-state.KILLED { background: #6c757d; color: #fff; }
+    .app-state.FINISHED { background: #17a2b8; color: #fff; }
   </style>
 </head>
 <body>
@@ -60,6 +78,20 @@
           <div class="info-row"><span class="info-label">Metrics URL</span><span class="info-value" id="svc-metrics-url">--</span></div>
           <div class="info-row"><span class="info-label">Model Repository</span><span class="info-value" id="svc-model-repo">--</span></div>
         </div>
+      </div>
+
+      <div class="card">
+        <h2>Prerequisites</h2>
+        <ul class="prereq-list" id="prereq-list">
+          <li>Checking...</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>YARN Application History</h2>
+        <ul class="app-history" id="app-history">
+          <li>Loading...</li>
+        </ul>
       </div>
 
       <div class="card">
@@ -171,6 +203,125 @@
       return null;
     }
 
+    function getYarnSiteConfig(cluster) {
+      return apiGet('/api/v1/clusters/' + cluster + '?fields=Clusters/desired_configs/yarn-site')
+        .then(function(data) {
+          var dc = data.Clusters.desired_configs;
+          if (!dc || !dc['yarn-site']) return {};
+          return apiGet('/api/v1/clusters/' + cluster + '/configurations?type=yarn-site&tag=' + dc['yarn-site'].tag);
+        })
+        .then(function(data) { return (data.items && data.items[0] && data.items[0].properties) || {}; })
+        .catch(function() { return {}; });
+    }
+
+    function checkPrerequisites(cluster) {
+      return Promise.all([
+        apiGet('/api/v1/clusters/' + cluster + '/services/YARN?fields=ServiceInfo/state').catch(function() { return null; }),
+        apiGet('/api/v1/clusters/' + cluster + '/services/YARN/components/NODEMANAGER?fields=host_components/HostRoles/state,host_components/HostRoles/host_name').catch(function() { return null; }),
+        getYarnSiteConfig(cluster)
+      ]).then(function(r) {
+        var checks = [];
+        // 1. YARN Service
+        var yarnState = r[0] && r[0].ServiceInfo ? r[0].ServiceInfo.state : 'UNKNOWN';
+        checks.push({
+          ok: yarnState === 'STARTED',
+          name: 'YARN Service',
+          detail: yarnState === 'STARTED' ? 'Running' : 'State: ' + yarnState + '. Start YARN from Ambari.'
+        });
+        // 2. NodeManagers
+        var nms = (r[1] && r[1].host_components) || [];
+        var nmsUp = nms.filter(function(n) { return n.HostRoles.state === 'STARTED'; });
+        checks.push({
+          ok: nmsUp.length > 0,
+          name: 'NodeManagers',
+          detail: nmsUp.length + '/' + nms.length + ' running' + (nmsUp.length === 0 ? '. No NodeManager available to run containers.' : ' (' + nmsUp.map(function(n) { return n.HostRoles.host_name.split('.')[0]; }).join(', ') + ')')
+        });
+        // 3. Docker Runtime
+        var yarnCfg = r[2] || {};
+        var runtimes = yarnCfg['yarn.nodemanager.runtime.linux.allowed-runtimes'] || '';
+        var dockerOk = runtimes.indexOf('docker') >= 0;
+        checks.push({
+          ok: dockerOk,
+          name: 'Docker Runtime',
+          detail: dockerOk
+            ? 'Enabled (runtimes: ' + runtimes + ')'
+            : 'Not enabled. Add <code>docker</code> to <code>yarn.nodemanager.runtime.linux.allowed-runtimes</code> in YARN config.'
+        });
+        // 4. Docker networks
+        var networks = yarnCfg['yarn.nodemanager.runtime.linux.docker.allowed-container-networks'] || '';
+        var hostNet = networks.indexOf('host') >= 0;
+        checks.push({
+          ok: hostNet,
+          warn: !hostNet,
+          name: 'Docker Host Network',
+          detail: hostNet
+            ? 'Allowed (networks: ' + networks + ')'
+            : 'Not allowed. Add <code>host</code> to <code>yarn.nodemanager.runtime.linux.docker.allowed-container-networks</code>.'
+        });
+        // 5. GPU Support
+        var gpuDevices = yarnCfg['yarn.nodemanager.resource-plugins.gpu.allowed-gpu-devices'] || '';
+        var gpuOk = gpuDevices.length > 0;
+        checks.push({
+          ok: gpuOk,
+          warn: !gpuOk,
+          name: 'GPU Support',
+          detail: gpuOk
+            ? 'Configured (devices: ' + gpuDevices + ')'
+            : 'Not configured. Set <code>yarn.nodemanager.resource-plugins.gpu.allowed-gpu-devices</code> and ensure NVIDIA drivers are installed on NodeManagers.'
+        });
+        // 6. Container executor
+        var ceClass = yarnCfg['yarn.nodemanager.container-executor.class'] || '';
+        var linuxCe = ceClass.indexOf('LinuxContainerExecutor') >= 0;
+        checks.push({
+          ok: linuxCe,
+          name: 'Linux Container Executor',
+          detail: linuxCe
+            ? 'Active'
+            : 'Required for Docker. Set <code>yarn.nodemanager.container-executor.class</code> to <code>LinuxContainerExecutor</code>.'
+        });
+
+        // Render
+        var el = document.getElementById('prereq-list');
+        el.innerHTML = '';
+        checks.forEach(function(c) {
+          var li = document.createElement('li');
+          var iconClass = c.ok ? 'ok' : (c.warn ? 'warn' : 'fail');
+          var iconChar = c.ok ? '\u2713' : (c.warn ? '!' : '\u2717');
+          li.innerHTML = '<span class="prereq-icon ' + iconClass + '">' + iconChar + '</span>' +
+            '<div><strong>' + c.name + '</strong><div class="prereq-detail">' + c.detail + '</div></div>';
+          el.appendChild(li);
+        });
+      });
+    }
+
+    function loadAppHistory(cluster) {
+      // Ambari predicate filters don't support regex on request_context, and
+      // sortBy is applied *after* pagination — so request a large page and then
+      // sort + filter client-side for Tarn-related operations.
+      return apiGet('/api/v1/clusters/' + cluster + '/requests?fields=Requests/request_context,Requests/request_status,Requests/start_time,Requests/end_time&page_size=500')
+        .then(function(data) {
+          var el = document.getElementById('app-history');
+          var items = (data.items || []).filter(function(i) {
+            return /tarn/i.test(i.Requests.request_context || '');
+          }).sort(function(a, b) {
+            return (b.Requests.start_time || 0) - (a.Requests.start_time || 0);
+          }).slice(0, 5);
+          if (items.length === 0) { el.innerHTML = '<li>No Tarn operations found</li>'; return; }
+          el.innerHTML = '';
+          items.forEach(function(item) {
+            var r = item.Requests;
+            var li = document.createElement('li');
+            var date = r.start_time ? new Date(r.start_time).toLocaleString() : 'N/A';
+            li.innerHTML = '<span class="app-state ' + r.request_status + '">' + r.request_status + '</span> ' +
+              '<strong>' + (r.request_context || 'Unknown') + '</strong> — ' + date;
+            el.appendChild(li);
+          });
+        })
+        .catch(function() {
+          document.getElementById('app-history').innerHTML = '<li>Unable to load history</li>';
+        });
+    }
+
     var amUrl = '', tritonUrl = '', metricsUrl = '';
 
     function loadData() {
@@ -204,6 +355,10 @@
         document.getElementById('link-triton-models').href = tritonUrl + '/v2/models';
         document.getElementById('link-metrics').href = metricsUrl + '/metrics';
         document.getElementById('link-grpc').href = tritonUrl.replace(/:\d+$/, ':8001');
+
+        // Check prerequisites and load app history in background
+        checkPrerequisites(cluster);
+        loadAppHistory(cluster);
 
         // Get service state and config from Ambari API
         return Promise.all([
