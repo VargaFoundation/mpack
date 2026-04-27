@@ -93,6 +93,39 @@ class TarnServer(Script):
   def configure(self, env):
     import params
     env.set_params(params)
+    self._render_jaas(params)
+
+  def _render_jaas(self, params):
+    """Write a JAAS config that the AM JVM will use to authenticate to a Kerberized
+    ZooKeeper. Without this, the AM hangs in CuratorFramework.blockUntilConnected because
+    SASL handshakes never succeed.
+
+    We use the smokeuser (ambari-qa) keytab because it is guaranteed to exist on every
+    NodeManager host (LinuxContainerExecutor requires it) — the tarn service keytab is
+    only on the master, so the AM container, which lands on a random NM, would not have
+    it. The principal need not match a Ranger 'tarn' user; it only needs to be valid
+    Kerberos credentials accepted by ZooKeeper's SASL provider.
+    """
+    if params.security_kerberos_enabled == 'true' or params.security_kerberos_enabled == True:
+      jaas_path = os.path.join(params.tarn_conf_dir, "tarn_zk_jaas.conf")
+      jaas_content = (
+        "Client {{\n"
+        "  com.sun.security.auth.module.Krb5LoginModule required\n"
+        "  useKeyTab=true\n"
+        "  keyTab=\"{keytab}\"\n"
+        "  storeKey=true\n"
+        "  useTicketCache=false\n"
+        "  principal=\"{principal}\";\n"
+        "}};\n"
+      ).format(keytab=params.smokeuser_keytab,
+               principal=params.smokeuser_principal)
+      File(jaas_path,
+           content=jaas_content,
+           owner='root',
+           group='hadoop',
+           mode=0o644,
+      )
+      Logger.info("Wrote ZK JAAS config to {0}".format(jaas_path))
 
   def _kinit(self, params):
     """Authenticate with Kerberos using the smokeuser (ambari-qa) keytab.
@@ -142,6 +175,9 @@ class TarnServer(Script):
         cmd += " --docker-privileged"
     if params.tarn_docker_delayed_removal == 'true' or params.tarn_docker_delayed_removal == True:
         cmd += " --docker-delayed-removal"
+    if params.tarn_docker_mounts:
+        cmd += format(" --docker-mounts {tarn_docker_mounts}",
+                      tarn_docker_mounts=params.tarn_docker_mounts)
 
     if params.tarn_zk_ensemble:
         cmd += format(" --zk-ensemble {tarn_zk_ensemble}")
@@ -158,6 +194,75 @@ class TarnServer(Script):
     cmd += format(" --min-instances {tarn_min_instances}")
     cmd += format(" --max-instances {tarn_max_instances}")
     cmd += format(" --cooldown {tarn_cooldown}")
+
+    # ===== v1.0.0 additions =====
+    # Bool/string toggles. Cast each Ambari config value defensively so 'true', True, 'True'
+    # all behave the same way (Ambari stringifies booleans inconsistently across versions).
+    def _truthy(v):
+      return str(v).strip().lower() in ('true', 'yes', '1')
+
+    if _truthy(params.tarn_ranger_strict):
+      cmd += " --ranger-strict"
+    if _truthy(params.tarn_zk_required):
+      cmd += " --zk-required"
+
+    # TLS — only emit the flags if the operator wired a keystore path; the AM validates
+    # tls-enabled requires --tls-keystore so we skip both together if either is missing.
+    if _truthy(params.tarn_tls_enabled) and params.tarn_tls_keystore_path:
+      cmd += format(" --tls-enabled --tls-keystore {tarn_tls_keystore_path}"
+                    " --tls-keystore-type {tarn_tls_keystore_type}"
+                    " --tls-keystore-password-alias {tarn_tls_keystore_pwd_alias}",
+                    tarn_tls_keystore_path=params.tarn_tls_keystore_path,
+                    tarn_tls_keystore_type=params.tarn_tls_keystore_type,
+                    tarn_tls_keystore_pwd_alias=params.tarn_tls_keystore_pwd_alias)
+
+    # OpenAI proxy
+    if _truthy(params.tarn_openai_proxy_enabled):
+      cmd += format(" --openai-proxy-enabled --openai-proxy-port {tarn_openai_proxy_port}",
+                    tarn_openai_proxy_port=params.tarn_openai_proxy_port)
+
+    # OTel endpoint (only meaningful if the JVM has the otel javaagent attached)
+    if params.tarn_otel_endpoint:
+      cmd += format(" --otel-endpoint {tarn_otel_endpoint}",
+                    tarn_otel_endpoint=params.tarn_otel_endpoint)
+
+    # Scaling additions
+    cmd += format(" --scale-mode {tarn_scale_mode}", tarn_scale_mode=params.tarn_scale_mode)
+    cmd += format(" --queue-capacity-per-container {tarn_queue_capacity}",
+                  tarn_queue_capacity=params.tarn_queue_capacity)
+    cmd += format(" --monitor-interval-ms {tarn_monitor_interval_ms}",
+                  tarn_monitor_interval_ms=params.tarn_monitor_interval_ms)
+    cmd += format(" --drain-timeout-ms {tarn_drain_timeout_ms}",
+                  tarn_drain_timeout_ms=params.tarn_drain_timeout_ms)
+    cmd += format(" --warmup-timeout-ms {tarn_warmup_timeout_ms}",
+                  tarn_warmup_timeout_ms=params.tarn_warmup_timeout_ms)
+    cmd += format(" --warmup-poll-interval-ms {tarn_warmup_poll_ms}",
+                  tarn_warmup_poll_ms=params.tarn_warmup_poll_ms)
+
+    # Quotas (HDFS path)
+    if params.tarn_quotas_path:
+      cmd += format(" --quotas {tarn_quotas_path}",
+                    tarn_quotas_path=params.tarn_quotas_path)
+
+    # Accelerator
+    cmd += format(" --accelerator-type {tarn_accelerator_type}",
+                  tarn_accelerator_type=params.tarn_accelerator_type)
+    if params.tarn_gpu_slice_size:
+      cmd += format(" --gpu-slice-size {tarn_gpu_slice_size}",
+                    tarn_gpu_slice_size=params.tarn_gpu_slice_size)
+
+    # Shadow traffic
+    if params.tarn_shadow_endpoint and float(params.tarn_shadow_sample_rate or 0) > 0:
+      cmd += format(" --shadow-endpoint {tarn_shadow_endpoint} --shadow-sample-rate {tarn_shadow_sample_rate}",
+                    tarn_shadow_endpoint=params.tarn_shadow_endpoint,
+                    tarn_shadow_sample_rate=params.tarn_shadow_sample_rate)
+
+    # When Kerberos is enabled, pass the JAAS conf to the AM via --zk-jaas. Client.java
+    # uploads it to HDFS as a LocalResource and sets JAVA_TOOL_OPTIONS on the AM JVM so the
+    # JVM picks it up automatically — no need to mount /etc/tarn into NodeManager containers.
+    if params.security_kerberos_enabled == 'true' or params.security_kerberos_enabled == True:
+      jaas_path = os.path.join(params.tarn_conf_dir, "tarn_zk_jaas.conf")
+      cmd += format(" --zk-jaas {jaas_path}")
 
     Logger.info(format("Launching Tarn Client daemon: {cmd}"))
     daemon_cmd = format("nohup bash -c 'export JAVA_HOME={java_home}; {cmd}' >> {tarn_log_dir}/tarn_client.out 2>&1 & echo $! > {tarn_pid_file}")

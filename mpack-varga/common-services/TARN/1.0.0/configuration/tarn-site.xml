@@ -87,6 +87,14 @@
     <description>Delayed removal of docker containers</description>
   </property>
   <property>
+    <name>tarn.docker.mounts</name>
+    <value></value>
+    <description>Comma-separated docker bind mounts: host:container:mode (e.g. /var/lib/tarn/models:/models:ro). Each host path must already be in YARN container-executor docker.allowed.{ro,rw}-mounts.</description>
+    <value-attributes>
+      <empty-value-valid>true</empty-value-valid>
+    </value-attributes>
+  </property>
+  <property>
     <name>tarn.zk.ensemble</name>
     <value></value>
     <description>ZooKeeper ensemble (e.g. host1:2181,host2:2181)</description>
@@ -163,5 +171,172 @@
     <name>ranger.admin.url</name>
     <value>http://localhost:6080</value>
     <description>Ranger Admin URL</description>
+  </property>
+
+  <!-- ===== Properties added in v1.0.0 (LLM serving + security hardening) ===== -->
+
+  <!-- Security: fail-closed Ranger and ZK -->
+  <property>
+    <name>tarn.ranger.strict</name>
+    <value>true</value>
+    <description>Deny-by-default if the Ranger plugin can't initialize. Recommended in regulated clusters.</description>
+    <value-attributes>
+      <type>boolean</type>
+    </value-attributes>
+  </property>
+  <property>
+    <name>tarn.zk.required</name>
+    <value>true</value>
+    <description>Refuse to start the AM if ZooKeeper is unreachable (Knox HA depends on the ZK znodes).</description>
+    <value-attributes>
+      <type>boolean</type>
+    </value-attributes>
+  </property>
+
+  <!-- TLS for the AM HTTP endpoints -->
+  <property>
+    <name>tarn.tls.enabled</name>
+    <value>false</value>
+    <description>Serve AM and OpenAI proxy endpoints over HTTPS.</description>
+    <value-attributes>
+      <type>boolean</type>
+    </value-attributes>
+  </property>
+  <property>
+    <name>tarn.tls.keystore.path</name>
+    <value></value>
+    <description>HDFS or local path to the TLS keystore (JKS / PKCS12). Required when tarn.tls.enabled=true.</description>
+    <value-attributes>
+      <empty-value-valid>true</empty-value-valid>
+    </value-attributes>
+  </property>
+  <property>
+    <name>tarn.tls.keystore.type</name>
+    <value>JKS</value>
+    <description>Keystore type (JKS or PKCS12).</description>
+  </property>
+  <property>
+    <name>tarn.tls.keystore.password.alias</name>
+    <value>tarn.tls.keystore.password</value>
+    <description>Hadoop credential-provider alias holding the keystore password.</description>
+  </property>
+
+  <!-- OpenAI-compatible proxy -->
+  <property>
+    <name>tarn.openai.proxy.enabled</name>
+    <value>false</value>
+    <description>Expose OpenAI-compatible /v1/* endpoints. Each Triton container must run the openai_frontend.</description>
+    <value-attributes>
+      <type>boolean</type>
+    </value-attributes>
+  </property>
+  <property>
+    <name>tarn.openai.proxy.port</name>
+    <value>9000</value>
+    <description>Port for the OpenAI proxy (must differ from tarn.am.port).</description>
+  </property>
+
+  <!-- Observability -->
+  <property>
+    <name>tarn.otel.endpoint</name>
+    <value></value>
+    <description>OTLP gRPC endpoint (e.g. http://collector:4317). Used by the OpenTelemetry Java agent when attached.</description>
+    <value-attributes>
+      <empty-value-valid>true</empty-value-valid>
+    </value-attributes>
+  </property>
+
+  <!-- Composite scaling signal -->
+  <property>
+    <name>tarn.scale.mode</name>
+    <value>composite</value>
+    <description>Scaling signal: gpu_util | queue_depth | composite (max of both, default and recommended for LLM workloads).</description>
+    <value-attributes>
+      <type>value-list</type>
+      <entries>
+        <entry><value>gpu_util</value></entry>
+        <entry><value>queue_depth</value></entry>
+        <entry><value>composite</value></entry>
+      </entries>
+      <selection-cardinality>1</selection-cardinality>
+    </value-attributes>
+  </property>
+  <property>
+    <name>tarn.queue.capacity.per.container</name>
+    <value>16</value>
+    <description>Pending requests per container considered "full" for queue-normalized load. Match the backend batching width.</description>
+  </property>
+  <property>
+    <name>tarn.monitor.interval.ms</name>
+    <value>15000</value>
+    <description>Interval between scaling evaluations in ms.</description>
+  </property>
+  <property>
+    <name>tarn.drain.timeout.ms</name>
+    <value>30000</value>
+    <description>Max wait for in-flight inferences before stopping a container during scale-down.</description>
+  </property>
+
+  <!-- Warmup -->
+  <property>
+    <name>tarn.warmup.timeout.ms</name>
+    <value>120000</value>
+    <description>Max wait for /v2/health/ready before registering a container in ZooKeeper.</description>
+  </property>
+  <property>
+    <name>tarn.warmup.poll.interval.ms</name>
+    <value>2000</value>
+    <description>Warmup readiness probe interval.</description>
+  </property>
+
+  <!-- Quotas -->
+  <property>
+    <name>tarn.quotas.path</name>
+    <value></value>
+    <description>HDFS or local path to quotas JSON file (rules: [{user|group, model, requestsPerMinute}]). Hot-reloadable via ZK.</description>
+    <value-attributes>
+      <empty-value-valid>true</empty-value-valid>
+    </value-attributes>
+  </property>
+
+  <!-- Accelerator hardware -->
+  <property>
+    <name>tarn.accelerator.type</name>
+    <value>nvidia_gpu</value>
+    <description>Hardware accelerator: nvidia_gpu (yarn.io/gpu) | amd_gpu | intel_gaudi | aws_neuron | cpu_only.</description>
+    <value-attributes>
+      <type>value-list</type>
+      <entries>
+        <entry><value>nvidia_gpu</value></entry>
+        <entry><value>amd_gpu</value></entry>
+        <entry><value>intel_gaudi</value></entry>
+        <entry><value>aws_neuron</value></entry>
+        <entry><value>cpu_only</value></entry>
+      </entries>
+      <selection-cardinality>1</selection-cardinality>
+    </value-attributes>
+  </property>
+  <property>
+    <name>tarn.gpu.slice.size</name>
+    <value></value>
+    <description>NVIDIA MIG profile (e.g. 1g.10gb, 2g.20gb) or decimal fraction for MPS time-sharing.</description>
+    <value-attributes>
+      <empty-value-valid>true</empty-value-valid>
+    </value-attributes>
+  </property>
+
+  <!-- Shadow traffic for A/B comparison -->
+  <property>
+    <name>tarn.shadow.endpoint</name>
+    <value></value>
+    <description>Backend URL to mirror traffic to (e.g. http://triton-v2:8000). Responses discarded.</description>
+    <value-attributes>
+      <empty-value-valid>true</empty-value-valid>
+    </value-attributes>
+  </property>
+  <property>
+    <name>tarn.shadow.sample.rate</name>
+    <value>0.0</value>
+    <description>Fraction of requests mirrored to the shadow endpoint (0.0 - 1.0). 0 disables.</description>
   </property>
 </configuration>

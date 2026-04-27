@@ -18,6 +18,7 @@ tarn_placement_tag = config['configurations']['tarn-site']['tarn.placement.tag']
 tarn_docker_network = config['configurations']['tarn-site']['tarn.docker.network']
 tarn_docker_privileged = config['configurations']['tarn-site']['tarn.docker.privileged']
 tarn_docker_delayed_removal = config['configurations']['tarn-site']['tarn.docker.delayed.removal']
+tarn_docker_mounts = default('/configurations/tarn-site/tarn.docker.mounts', '')
 tarn_zk_ensemble = config['configurations']['tarn-site']['tarn.zk.ensemble']
 tarn_zk_path = config['configurations']['tarn-site']['tarn.zk.path']
 tarn_ranger_service = config['configurations']['tarn-site']['tarn.ranger.service']
@@ -56,3 +57,29 @@ tarn_pid_dir = "/var/run/tarn"
 tarn_pid_file = format("{tarn_pid_dir}/tarn.pid")
 tarn_conf_dir = format("{tarn_install_dir}/conf")
 java_home = config['ambariLevelParams']['java_home']
+
+# ===== Properties added in v1.0.0 =====
+# Use Ambari's default() helper — it handles missing config types AND missing keys AND
+# UnknownConfiguration sentinels (which raw config[][] returns for keys not in the current
+# tag). Without this, partial config rollouts crash the script with a TypeError when we
+# coerce UnknownConfiguration to float/bool.
+tarn_ranger_strict        = default('/configurations/tarn-site/tarn.ranger.strict', 'true')
+tarn_zk_required          = default('/configurations/tarn-site/tarn.zk.required', 'true')
+tarn_tls_enabled          = default('/configurations/tarn-site/tarn.tls.enabled', 'false')
+tarn_tls_keystore_path    = default('/configurations/tarn-site/tarn.tls.keystore.path', '')
+tarn_tls_keystore_type    = default('/configurations/tarn-site/tarn.tls.keystore.type', 'JKS')
+tarn_tls_keystore_pwd_alias = default('/configurations/tarn-site/tarn.tls.keystore.password.alias', 'tarn.tls.keystore.password')
+tarn_openai_proxy_enabled = default('/configurations/tarn-site/tarn.openai.proxy.enabled', 'false')
+tarn_openai_proxy_port    = default('/configurations/tarn-site/tarn.openai.proxy.port', '9000')
+tarn_otel_endpoint        = default('/configurations/tarn-site/tarn.otel.endpoint', '')
+tarn_scale_mode           = default('/configurations/tarn-site/tarn.scale.mode', 'composite')
+tarn_queue_capacity       = default('/configurations/tarn-site/tarn.queue.capacity.per.container', '16')
+tarn_monitor_interval_ms  = default('/configurations/tarn-site/tarn.monitor.interval.ms', '15000')
+tarn_drain_timeout_ms     = default('/configurations/tarn-site/tarn.drain.timeout.ms', '30000')
+tarn_warmup_timeout_ms    = default('/configurations/tarn-site/tarn.warmup.timeout.ms', '120000')
+tarn_warmup_poll_ms       = default('/configurations/tarn-site/tarn.warmup.poll.interval.ms', '2000')
+tarn_quotas_path          = default('/configurations/tarn-site/tarn.quotas.path', '')
+tarn_accelerator_type     = default('/configurations/tarn-site/tarn.accelerator.type', 'nvidia_gpu')
+tarn_gpu_slice_size       = default('/configurations/tarn-site/tarn.gpu.slice.size', '')
+tarn_shadow_endpoint      = default('/configurations/tarn-site/tarn.shadow.endpoint', '')
+tarn_shadow_sample_rate   = default('/configurations/tarn-site/tarn.shadow.sample.rate', '0.0')
