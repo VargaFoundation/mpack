@@ -1,88 +1,188 @@
 <?xml version="1.0"?>
 <configuration>
+  <!-- ============================================================================== -->
+  <!-- Server                                                                          -->
+  <!-- ============================================================================== -->
   <property>
     <name>kirka.port</name>
     <value>8086</value>
-    <description>Port for Kirka Server</description>
+    <description>HTTP port the Kirka Spring Boot service binds to.</description>
   </property>
   <property>
     <name>kirka.install_dir</name>
     <value>/opt/kirka</value>
-    <description>Installation directory for Kirka</description>
+    <description>Filesystem path where kirka.jar and conf/ live.</description>
   </property>
+
+  <!-- ============================================================================== -->
+  <!-- HBase / HDFS                                                                    -->
+  <!-- ============================================================================== -->
   <property>
     <name>hbase.zookeeper.quorum</name>
     <value>localhost</value>
-    <description>HBase Zookeeper Quorum</description>
+    <description>Comma-separated ZooKeeper hosts for HBase.</description>
   </property>
   <property>
     <name>hbase.zookeeper.property.clientPort</name>
     <value>2181</value>
-    <description>HBase Zookeeper Client Port</description>
+    <description>ZooKeeper client port.</description>
   </property>
   <property>
     <name>hadoop.hdfs.uri</name>
     <value>hdfs://localhost:9000</value>
-    <description>HDFS URI</description>
+    <description>HDFS namenode URI used to store run artifacts.</description>
   </property>
+
+  <!-- ============================================================================== -->
+  <!-- API wire format                                                                 -->
+  <!-- ============================================================================== -->
+  <property>
+    <name>kirka.api.naming</name>
+    <value>snake_case</value>
+    <description>JSON property naming on the wire. snake_case matches the official MLflow REST
+      API and the Python/Java/R clients. Use camel_case only for short-term compatibility
+      with legacy consumers.</description>
+  </property>
+
+  <!-- ============================================================================== -->
+  <!-- Security                                                                        -->
+  <!-- ============================================================================== -->
   <property>
     <name>security.enabled</name>
     <value>false</value>
-    <description>Enable/disable security</description>
+    <description>Master switch for authentication / authorization.</description>
   </property>
   <property>
     <name>security.authentication.type</name>
     <value>basic</value>
-    <description>Authentication type (basic, knox, kerberos)</description>
+    <description>Default authentication scheme: basic, knox, kerberos.</description>
+  </property>
+  <property>
+    <name>security.users.file</name>
+    <value>/etc/kirka/users.htpasswd</value>
+    <description>Bcrypt htpasswd file consulted by Basic auth (one user per line:
+      "user:$2a$10$..."). Mount through an Ambari-managed secret in secured clusters.</description>
+  </property>
+  <property>
+    <name>security.trusted.proxies</name>
+    <value></value>
+    <description>Comma-separated CIDRs allowed to send X-Forwarded-User. Leaving empty
+      effectively disables the Knox header (recommended when Kirka is reachable directly).
+      Example: 10.20.0.0/16,192.168.77.10/32.</description>
   </property>
   <property>
     <name>security.admin.users</name>
-    <value>admin</value>
-    <description>Comma-separated list of admin users</description>
-  </property>
-  <property>
-    <name>security.kerberos.enabled</name>
-    <value>false</value>
-    <description>Enable Kerberos</description>
-  </property>
-  <property>
-    <name>security.kerberos.principal</name>
-    <value>user@REALM.COM</value>
-    <description>Kerberos principal</description>
-  </property>
-  <property>
-    <name>security.kerberos.keytab</name>
-    <value>/path/to/user.keytab</value>
-    <description>Kerberos keytab path</description>
-  </property>
-  <property>
-    <name>security.kerberos.krb5conf</name>
-    <value>/etc/krb5.conf</value>
-    <description>krb5.conf path</description>
-  </property>
-  <property>
-    <name>ranger.service.name</name>
-    <value>kirka</value>
-    <description>Ranger service name</description>
-  </property>
-  <property>
-    <name>ranger.admin.url</name>
-    <value>http://localhost:6080</value>
-    <description>Ranger Admin URL</description>
-  </property>
-  <property>
-    <name>ranger.policy.cache.dir</name>
-    <value>/tmp/ranger-cache</value>
-    <description>Ranger policy cache directory</description>
+    <value></value>
+    <description>Comma-separated list of usernames promoted to ROLE_ADMIN AFTER successful
+      authentication. ROLE_ADMIN governs /actuator/env|loggers|beans, the audit log API and
+      the GDPR hard-delete endpoint.</description>
   </property>
   <property>
     <name>security.authorization.owner.enabled</name>
     <value>true</value>
-    <description>Enable owner-based authorization</description>
+    <description>The creator of a resource always retains access, even when no Ranger policy
+      grants it. Acts as a safety net if Ranger Admin is unreachable at startup.</description>
   </property>
+
+  <!-- ============================================================================== -->
+  <!-- Kerberos                                                                        -->
+  <!-- ============================================================================== -->
+  <property>
+    <name>security.kerberos.enabled</name>
+    <value>false</value>
+    <description>Enable Kerberos authentication.</description>
+  </property>
+  <property>
+    <name>security.kerberos.principal</name>
+    <value>kirka/_HOST@EXAMPLE.COM</value>
+    <description>Kerberos service principal. Ambari substitutes _HOST with the hostname
+      where KIRKA_SERVER runs; the realm should match your KDC.</description>
+  </property>
+  <property>
+    <name>security.kerberos.keytab</name>
+    <value>/etc/security/keytabs/kirka.service.keytab</value>
+    <description>Service keytab path (provisioned automatically by Ambari Kerberos when
+      kerberos.json is honoured).</description>
+  </property>
+  <property>
+    <name>security.kerberos.krb5conf</name>
+    <value>/etc/krb5.conf</value>
+    <description>Path to krb5.conf on the KIRKA_SERVER host.</description>
+  </property>
+
+  <!-- ============================================================================== -->
+  <!-- Apache Ranger                                                                   -->
+  <!-- ============================================================================== -->
+  <property>
+    <name>ranger.service.name</name>
+    <value>kirka</value>
+    <description>Name of the Kirka service instance in Ranger Admin.</description>
+  </property>
+  <property>
+    <name>ranger.admin.url</name>
+    <value>http://localhost:6080</value>
+    <description>Ranger Admin URL the embedded plugin pulls policies from.</description>
+  </property>
+  <property>
+    <name>ranger.policy.cache.dir</name>
+    <value>/var/lib/kirka/ranger-cache</value>
+    <description>Local directory the Ranger plugin uses to cache policies between refreshes.
+      Keep it on durable storage so the cache survives pod restarts.</description>
+  </property>
+
+  <!-- ============================================================================== -->
+  <!-- Graceful shutdown / multipart                                                   -->
+  <!-- ============================================================================== -->
+  <property>
+    <name>server.shutdown.timeout</name>
+    <value>30s</value>
+    <description>Timeout for Spring Boot graceful shutdown — request handlers get this
+      window before the JVM exits. Match this with terminationGracePeriodSeconds in K8s.</description>
+  </property>
+  <property>
+    <name>multipart.max_file_size</name>
+    <value>5GB</value>
+    <description>Maximum size of a single artifact upload (multipart/form-data).</description>
+  </property>
+  <property>
+    <name>multipart.max_request_size</name>
+    <value>5GB</value>
+    <description>Maximum size of an entire multipart request, including headers.</description>
+  </property>
+
+  <!-- ============================================================================== -->
+  <!-- JVM tuning                                                                      -->
+  <!-- ============================================================================== -->
+  <property>
+    <name>kirka.heap.size</name>
+    <value>2g</value>
+    <description>JVM max heap size (translates to -Xmx). 2g fits clusters with up to ~10M
+      runs; bump to 4g+ for 100M-run workloads with wide metric history scans.</description>
+  </property>
+  <property>
+    <name>kirka.java.opts</name>
+    <value>-XX:+UseG1GC -XX:+ExitOnOutOfMemoryError</value>
+    <description>Additional JVM options. Avoid setting -Xmx here; use kirka.heap.size.</description>
+  </property>
+  <property>
+    <name>kirka.spring.profiles.active</name>
+    <value>prod</value>
+    <description>Spring profile the server starts with. The "prod" profile enables JSON
+      structured logging via logback-spring.xml — recommended for log shippers.</description>
+  </property>
+
+  <!-- ============================================================================== -->
+  <!-- Logging                                                                         -->
+  <!-- ============================================================================== -->
   <property>
     <name>logging.level.kirka</name>
     <value>INFO</value>
-    <description>Logging level for Kirka</description>
+    <description>Default log level for the varga.kirka package.</description>
+  </property>
+  <property>
+    <name>logging.level.kirka.security</name>
+    <value>INFO</value>
+    <description>Log level for the security/auth subpackage. Bump to DEBUG when diagnosing
+      Ranger or Basic-auth issues; do not leave at DEBUG in production.</description>
   </property>
 </configuration>

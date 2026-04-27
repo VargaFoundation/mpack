@@ -5,30 +5,50 @@
     <service>
       <name>KIRKA</name>
       <displayName>Kirka</displayName>
-      <comment>Kirka is a high-performance distributed task scheduler.</comment>
+      <comment>Kirka is an MLflow-compatible tracking server for the Hadoop ecosystem
+        (HBase + HDFS storage, Apache Ranger authorization, Kerberos / Knox authentication).</comment>
       <version>1.0.0</version>
+
       <components>
         <component>
           <name>KIRKA_SERVER</name>
           <displayName>Kirka Server</displayName>
           <category>MASTER</category>
           <cardinality>1</cardinality>
+
           <dependencies>
+            <!-- Mandatory back-ends. auto-deploy=false because operators always have
+                 these services already in place; we mark them required so Ambari
+                 surfaces a topology error if they are missing. -->
+            <dependency>
+              <name>HBASE/HBASE_MASTER</name>
+              <scope>cluster</scope>
+              <auto-deploy><enabled>false</enabled></auto-deploy>
+            </dependency>
+            <dependency>
+              <name>HDFS/NAMENODE</name>
+              <scope>cluster</scope>
+              <auto-deploy><enabled>false</enabled></auto-deploy>
+            </dependency>
+            <dependency>
+              <name>ZOOKEEPER/ZOOKEEPER_SERVER</name>
+              <scope>cluster</scope>
+              <auto-deploy><enabled>false</enabled></auto-deploy>
+            </dependency>
+            <!-- Optional but recommended. Kirka degrades to owner-only authorization
+                 if Ranger is absent, which is documented in the Mpack README. -->
             <dependency>
               <name>RANGER/RANGER_ADMIN</name>
               <scope>cluster</scope>
-              <auto-deploy>
-                <enabled>false</enabled>
-              </auto-deploy>
+              <auto-deploy><enabled>false</enabled></auto-deploy>
             </dependency>
             <dependency>
               <name>RANGER/RANGER_USERSYNC</name>
               <scope>cluster</scope>
-              <auto-deploy>
-                <enabled>false</enabled>
-              </auto-deploy>
+              <auto-deploy><enabled>false</enabled></auto-deploy>
             </dependency>
           </dependencies>
+
           <commandScript>
             <script>scripts/kirka_server.py</script>
             <scriptType>PYTHON</scriptType>
@@ -36,6 +56,28 @@
           </commandScript>
         </component>
       </components>
+
+      <!-- Ambari calls this when an operator clicks "Run Service Check" or via REST.
+           Must be a separate script with its own Script subclass — pointing to
+           kirka_server.py here causes "Unsupported action SERVICE_CHECK" because Ambari
+           dispatches by class, not by method name. -->
+      <commandScript>
+        <script>scripts/service_check.py</script>
+        <scriptType>PYTHON</scriptType>
+        <timeout>120</timeout>
+      </commandScript>
+
+      <configuration-dependencies>
+        <config-type>kirka-site</config-type>
+        <config-type>ranger-kirka-plugin-properties</config-type>
+      </configuration-dependencies>
+
+      <requiredServices>
+        <service>HBASE</service>
+        <service>HDFS</service>
+        <service>ZOOKEEPER</service>
+      </requiredServices>
+
       <osSpecifics>
         <osSpecific>
           <osFamily>any</osFamily>

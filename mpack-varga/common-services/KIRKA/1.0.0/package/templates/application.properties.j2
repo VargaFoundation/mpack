@@ -1,49 +1,79 @@
+# =============================================================================
+# Kirka — application.properties (rendered by the Ambari Mpack from kirka-site)
+# =============================================================================
 spring.application.name=kirka
 server.port={{kirka_port}}
-# HBase Configuration
+
+# HBase
 hbase.zookeeper.quorum={{hbase_zookeeper_quorum}}
 hbase.zookeeper.property.clientPort={{hbase_zookeeper_clientPort}}
-# HDFS Configuration
+
+# HDFS
 hadoop.hdfs.uri={{hadoop_hdfs_uri}}
-# ===========================================
-# Security Configuration
-# ===========================================
+
+# =============================================================================
+# Security
+# =============================================================================
 security.enabled={{security_enabled|lower}}
 security.authentication.type={{security_authentication_type}}
+security.users.file={{security_users_file}}
+security.trusted.proxies={{security_trusted_proxies}}
 security.admin.users={{security_admin_users}}
-# ===========================================
-# Kerberos Configuration
-# ===========================================
+security.authorization.owner.enabled={{security_authorization_owner_enabled|lower}}
+
+# Kerberos
 security.kerberos.enabled={{security_kerberos_enabled|lower}}
 security.kerberos.principal={{security_kerberos_principal}}
 security.kerberos.keytab={{security_kerberos_keytab}}
 security.kerberos.krb5conf={{security_kerberos_krb5conf}}
-# ===========================================
-# Apache Ranger Configuration
-# ===========================================
+
+# Apache Ranger (the embedded RangerBasePlugin reads its connection details from
+# ranger-kirka-security.xml on the classpath; the values below are also exposed for
+# operators who want them visible in /actuator/env)
 ranger.service.name={{ranger_service_name}}
 ranger.admin.url={{ranger_admin_url}}
 ranger.policy.cache.dir={{ranger_policy_cache_dir}}
-security.authorization.owner.enabled={{security_authorization_owner_enabled}}
-# ===========================================
+
+# =============================================================================
+# Graceful shutdown / multipart
+# =============================================================================
+server.shutdown=graceful
+spring.lifecycle.timeout-per-shutdown-phase={{server_shutdown_timeout}}
+spring.servlet.multipart.max-file-size={{multipart_max_file_size}}
+spring.servlet.multipart.max-request-size={{multipart_max_request_size}}
+
+# =============================================================================
+# API JSON naming (MLflow compatibility)
+# snake_case matches the official MLflow REST API and the Python/Java/R clients.
+# =============================================================================
+kirka.api.naming={{kirka_api_naming}}
+
+# =============================================================================
 # Logging
-# ===========================================
+# Pattern includes the MDC `request_id` set by MdcCorrelationFilter so every line
+# can be correlated with the audit trail and the X-Request-Id response header.
+# =============================================================================
 logging.level.varga.kirka={{logging_level_kirka}}
-logging.pattern.console=%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n
-# ===========================================
-# Actuator & Metrics
-# ===========================================
-management.endpoints.web.exposure.include=health,info,metrics,prometheus,env,loggers,beans
-management.endpoint.health.show-details=always
+logging.level.varga.kirka.security={{logging_level_kirka_security}}
+logging.pattern.console=%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{request_id:-}] %-5level %logger{36} - %msg%n
+
+# =============================================================================
+# Actuator & metrics
+# Public: health/info/prometheus only. env/loggers/beans require ROLE_ADMIN
+# (enforced at the Spring Security layer in SecurityConfig).
+# =============================================================================
+management.endpoints.web.exposure.include=health,info,prometheus,env,loggers,beans
+management.endpoint.health.show-details=when_authorized
 management.endpoint.health.probes.enabled=true
 management.endpoints.web.base-path=/actuator
 management.info.env.enabled=true
 management.info.java.enabled=true
 management.info.os.enabled=true
-info.app.name=Kirka
-info.app.description=MLFlow compatible service for Hadoop
-info.app.version=1.0.0
 management.prometheus.metrics.export.enabled=true
 management.metrics.tags.application=${spring.application.name}
 management.health.diskspace.enabled=true
 management.health.ping.enabled=true
+
+info.app.name=Kirka
+info.app.description=MLFlow compatible service for Hadoop
+info.app.version=1.0.0
