@@ -1,3 +1,23 @@
-/SPEC.md
-/build/target/
+# IDE / editor metadata
 /.idea/
+/.vscode/
+*.swp
+
+# Internal docs not meant to ship
+/SPEC.md
+
+# Build outputs (the tar.gz produced by build/build_mpack.sh)
+/build/target/
+
+# Embedded application JARs — populated by build_mpack.sh from each project's
+# target/ directory. They are pure build artefacts and must not be committed
+# (each is hundreds of MB and changes on every build).
+mpack-varga/common-services/*/*/package/files/*.jar
+mpack-varga/common-services/*/*/package/files/*.tar.gz
+mpack-varga/common-services/*/*/package/files/*.tgz
+mpack-varga/common-services/*/*/package/files/*.zip
+
+# Generic Maven / Java build leftovers (in case a checkout is mixed with builds)
+target/
+*.class
+*.log
